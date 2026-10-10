@@ -10,7 +10,10 @@ import { jsonError, parseBody } from "@/lib/http";
 
 const Body = z.object({ passcode: z.string().min(1).max(200) });
 
-/** Vercel sets these headers itself, overwriting anything the client sent. */
+/**
+ * Vercel overwrites these headers itself, so clients can't spoof them:
+ * https://vercel.com/docs/headers/request-headers#x-forwarded-for
+ */
 function clientIp(req: NextRequest): string {
   return (
     req.headers.get("x-real-ip") ??
