@@ -4,3 +4,6 @@ process.env.DATABASE_URL = "postgresql://test:test@localhost:5432/test";
 process.env.GROWNUP_PASSCODE = "open-sesame-123";
 process.env.SESSION_SECRET = "test-secret-that-is-definitely-32-chars-long";
 process.env.HARDCOVER_TOKEN = "";
+
+// A US time zone, so date tests would catch the UTC "tomorrow" bug.
+process.env.TZ = "America/Los_Angeles";
