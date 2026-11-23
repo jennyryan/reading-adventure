@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isSameBook } from "@/lib/bookMatch";
+import { cleanTitle } from "@/lib/bookTitle";
 import { env } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 
@@ -96,7 +97,7 @@ async function searchGoogle(q: string, key: string, signal: AbortSignal): Promis
       isbns.find((i) => i.type === "ISBN_13")?.identifier ?? isbns.find((i) => i.type === "ISBN_10")?.identifier;
     return [
       {
-        title: v.title,
+        title: cleanTitle(v.title),
         author: v.authors?.[0] ?? null,
         isbn: isbn ?? null,
         coverUrl: googleCover(v.imageLinks?.thumbnail),
@@ -151,7 +152,7 @@ async function searchOpenLibrary(q: string, signal: AbortSignal): Promise<BookSe
     if (!workId || !doc.title) return [];
     return [
       {
-        title: doc.title,
+        title: cleanTitle(doc.title),
         author: doc.author_name?.[0] ?? null,
         isbn: doc.isbn?.find((i) => i.length === 13) ?? doc.isbn?.[0] ?? null,
         coverUrl: doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg` : null,

@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 import { authorKey, isSameBook, titleKey } from "@/lib/bookMatch";
 
 describe("titleKey", () => {
-  it("ignores subtitles, leading articles, punctuation and capitals", () => {
+  it("ignores marketing subtitles, leading articles, punctuation and capitals", () => {
     expect(titleKey("Matilda: 30th Anniversary Edition")).toBe("matilda");
     expect(titleKey("The Wild Robot")).toBe("wild robot");
     expect(titleKey("Charlotte's Web")).toBe(titleKey("CHARLOTTES WEB"));
     expect(titleKey("Frog & Toad Are Friends")).toBe(titleKey("Frog and Toad Are Friends"));
     expect(titleKey("Ramona the Pest (Ramona, #2)")).toBe("ramona the pest");
+    // A real subtitle is part of the name: different books in one series.
+    expect(titleKey("Dog Man: Grime and Punishment")).not.toBe(titleKey("Dog Man"));
   });
 });
 
@@ -32,6 +34,9 @@ describe("isSameBook", () => {
 
   it("keeps different books apart", () => {
     expect(isSameBook({ title: "Frog and Toad Together" }, { title: "Frog and Toad Are Friends" })).toBe(false);
+    expect(isSameBook({ title: "Dog Man", author: "Dav Pilkey" }, { title: "Dog Man: Fetch-22", author: "Dav Pilkey" })).toBe(
+      false,
+    );
     expect(isSameBook({ title: "Matilda", author: "Roald Dahl" }, { title: "Matilda", author: "Someone Else" })).toBe(
       false,
     );

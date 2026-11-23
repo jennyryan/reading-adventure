@@ -2,6 +2,8 @@
 // edition separately, so the same story can arrive with different ids and
 // ISBNs; titles and authors are compared loosely instead.
 
+import { cleanTitle } from "./bookTitle";
+
 /** Lowercase letters and digits only, single-spaced. */
 function simplify(s: string) {
   return s
@@ -15,13 +17,13 @@ function simplify(s: string) {
 }
 
 /**
- * A title reduced to what identifies the book: no subtitle ("Matilda:
- * 30th Anniversary Edition" -> "matilda"), no leading "the/a/an", no
- * punctuation or capitals.
+ * A title reduced to what identifies the book: marketing and edition tags
+ * trimmed (cleanTitle: "Matilda: 30th Anniversary Edition" -> "Matilda"),
+ * no leading "the/a/an", no punctuation or capitals. Real subtitles count,
+ * so "Dog Man: Grime and Punishment" and "Dog Man" stay different books.
  */
 export function titleKey(title: string) {
-  const main = title.split(/[:(]/)[0];
-  return simplify(main).replace(/^(the|a|an) /, "");
+  return simplify(cleanTitle(title)).replace(/^(the|a|an) /, "");
 }
 
 /** An author reduced to their surname, which survives "E. B. White" vs "E.B. White". */
