@@ -21,7 +21,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${fredoka.variable} ${cherrySwash.variable} antialiased`}>
-      <body className="min-h-dvh font-sans">{children}</body>
+      <body className="flex min-h-dvh flex-col font-sans">{children}</body>
     </html>
   );
 }

@@ -13,27 +13,30 @@ export default async function Home() {
     <>
       <HeroScene />
 
-      <div className="polka-backdrop pb-2">
+      {/* Grows to the bottom of the window, so the dots cover the whole
+          page even when the shelf is short. */}
+      <div className="polka-backdrop flex-1 pb-2">
         {/* The margins are close fallbacks; AlignToHeroEdge sets the exact one. */}
-        <AlignToHeroEdge className="relative z-10 mx-auto -mt-[420px] max-w-7xl px-3 sm:-mt-[396px] sm:px-6">
-          {/* The badge sits on the hero picture, above the shelf. */}
-          <div className="mb-4 flex justify-center">
-            <BooksReadBadge read={books.length} />
-          </div>
-
+        <AlignToHeroEdge className="relative z-10 mx-auto -mt-[401px] max-w-7xl px-3 sm:-mt-[365px] sm:px-6">
           <section
             aria-label="Norah's bookshelf"
             className="space-y-8 rounded-[2rem] bg-cream p-5 shadow-[0_20px_50px_-15px_rgba(40,30,60,0.45)] sm:p-8"
           >
-            <div className="space-y-6 text-center">
-              <h1 className="font-display text-4xl font-bold leading-normal text-[#c2417f] sm:text-5xl">
+            <div className="space-y-3 text-center">
+              {/* The badge rises out of the panel's top edge, so it skips
+                  the panel's top padding. (Flex keeps this margin and the
+                  badge's own from merging into one.) */}
+              <div className="-mt-5 flex justify-center sm:-mt-8">
+                <BooksReadBadge read={books.length} />
+              </div>
+              <h1 className="font-display text-[2.3rem] font-bold leading-normal text-[#c2417f] sm:text-6xl">
                 Norah&apos;s Reading Adventure
               </h1>
               <div className="flex justify-center">
                 <AddBookButton />
               </div>
               {/* Lined up with the hero's pink border, so it reads as one line. */}
-              <hr data-hero-edge className="border-0 border-t-2 border-dashed border-pink-soft" />
+              <hr data-hero-edge className="mt-6 border-0 border-t-2 border-dashed border-pink-soft" />
             </div>
 
             {books.length > 0 ? (
