@@ -114,6 +114,50 @@ export async function findHardcoverBook(
   return data.books[0] ? toBook(data.books[0]) : null;
 }
 
+/** One numbered book in a series, as Hardcover lists it. */
+export type HardcoverSeriesMember = { hardcoverBookId: number; title: string; position: number };
+
+/**
+ * Every main book in a series, in order: one per numbered place (the most
+ * popular, when Hardcover has duplicates), leaving out collections, partial
+ * books, and in-between extras like "1.5". This follows Hardcover's own
+ * guide to listing a series as its website does.
+ */
+export async function fetchSeriesMembers(
+  token: string,
+  hardcoverSeriesId: number,
+  signal?: AbortSignal,
+): Promise<HardcoverSeriesMember[]> {
+  const data = await query<{
+    series: { book_series: { position: number | null; book: { id: number; title: string | null } | null }[] }[];
+  }>(
+    token,
+    `query ($id: Int!) {
+      series(where: { id: { _eq: $id } }, limit: 1) {
+        book_series(
+          distinct_on: position
+          order_by: [{ position: asc }, { book: { users_count: desc } }]
+          where: {
+            position: { _is_null: false }
+            compilation: { _eq: false }
+            book: { canonical_id: { _is_null: true }, is_partial_book: { _eq: false } }
+          }
+        ) {
+          position
+          book { id title }
+        }
+      }
+    }`,
+    { id: hardcoverSeriesId },
+    signal,
+  );
+  return (data.series[0]?.book_series ?? []).flatMap(({ position, book }) =>
+    typeof position === "number" && Number.isInteger(position) && position > 0 && book?.title
+      ? [{ hardcoverBookId: book.id, title: book.title, position }]
+      : [],
+  );
+}
+
 /** Search results are Hardcover's Typesense response, passed through as JSON. */
 type SearchResults = {
   hits?: { document?: { id?: string | number; title?: string; author_names?: string[] } }[];

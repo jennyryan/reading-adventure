@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { seriesFromTitle } from "@/lib/bookTitle";
 import { findHardcoverBook } from "@/lib/hardcover";
+import { pickIsbn, seriesFromOpenLibrary } from "@/lib/openLibrary";
 import { chooseSeries } from "@/lib/series";
 
 describe("seriesFromTitle", () => {
@@ -136,5 +137,34 @@ describe("findHardcoverBook", () => {
 
     mockHardcover(Response.json({ errors: [{ message: "field not found" }] }));
     await expect(findHardcoverBook("secret", { title: "Matilda" })).rejects.toThrow("field not found");
+  });
+});
+
+describe("seriesFromOpenLibrary", () => {
+  it("reads the series name and the number in its position", () => {
+    expect(seriesFromOpenLibrary({ series_name: ["Harry Potter"], series_position: ["2"] })).toEqual({
+      name: "Harry Potter",
+      position: 2,
+    });
+    expect(seriesFromOpenLibrary({ series_name: ["Warriors"], series_position: ["Book 3.5"] })).toEqual({
+      name: "Warriors",
+      position: 3.5,
+    });
+    expect(seriesFromOpenLibrary({ series_name: ["Frog and Toad"] })).toEqual({ name: "Frog and Toad", position: null });
+  });
+
+  it("finds nothing without a series name", () => {
+    expect(seriesFromOpenLibrary({})).toBeNull();
+    expect(seriesFromOpenLibrary({ series_name: [" "], series_position: ["1"] })).toBeNull();
+  });
+});
+
+describe("pickIsbn", () => {
+  it("prefers an English edition, then any ISBN-13", () => {
+    expect(pickIsbn(["9783551559029", "0747545774", "9780747545774"])).toBe("9780747545774");
+    expect(pickIsbn(["8478886141", "9788478884957"])).toBe("9788478884957");
+    expect(pickIsbn(["8478886141"])).toBe("8478886141");
+    expect(pickIsbn([])).toBeNull();
+    expect(pickIsbn(undefined)).toBeNull();
   });
 });

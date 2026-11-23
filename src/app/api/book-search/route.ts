@@ -3,6 +3,7 @@ import { isSameBook } from "@/lib/bookMatch";
 import { cleanTitle, seriesFromTitle, type SeriesHint } from "@/lib/bookTitle";
 import { env } from "@/lib/env";
 import { jsonError } from "@/lib/http";
+import { pickIsbn, seriesFromOpenLibrary, type OpenLibrarySeriesFields } from "@/lib/openLibrary";
 
 export type BookSearchResult = {
   title: string;
@@ -13,7 +14,10 @@ export type BookSearchResult = {
   googleVolumeId: string | null;
   /** The Open Library work, when the result came from Open Library. */
   openLibraryWorkId: string | null;
-  /** The series tag in the service's title, e.g. "(Dog Man #9)": a fallback for series detection. */
+  /**
+   * The series the service names: Open Library's series field, or the tag
+   * in Google's title, e.g. "(Dog Man #9)". A fallback for series detection.
+   */
   series: SeriesHint | null;
 };
 
@@ -128,7 +132,7 @@ function googleCover(thumbnail: string | undefined) {
   }
 }
 
-type OpenLibraryDoc = {
+type OpenLibraryDoc = OpenLibrarySeriesFields & {
   key?: string;
   title?: string;
   author_name?: string[];
@@ -139,7 +143,7 @@ type OpenLibraryDoc = {
 async function searchOpenLibrary(q: string, signal: AbortSignal): Promise<BookSearchResult[]> {
   const url = new URL("https://openlibrary.org/search.json");
   url.searchParams.set("q", q);
-  url.searchParams.set("fields", "key,title,author_name,cover_i,isbn");
+  url.searchParams.set("fields", "key,title,author_name,cover_i,isbn,series_name,series_position");
   url.searchParams.set("limit", String(MAX_RESULTS));
 
   const res = await fetch(url, {
@@ -157,11 +161,11 @@ async function searchOpenLibrary(q: string, signal: AbortSignal): Promise<BookSe
       {
         title: cleanTitle(doc.title),
         author: doc.author_name?.[0] ?? null,
-        isbn: doc.isbn?.find((i) => i.length === 13) ?? doc.isbn?.[0] ?? null,
+        isbn: pickIsbn(doc.isbn),
         coverUrl: doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg` : null,
         googleVolumeId: null,
         openLibraryWorkId: workId,
-        series: seriesFromTitle(doc.title),
+        series: seriesFromOpenLibrary(doc) ?? seriesFromTitle(doc.title),
       },
     ];
   });

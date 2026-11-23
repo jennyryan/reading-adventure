@@ -4,10 +4,15 @@ import { AlignToHeroEdge } from "@/components/shelf/AlignToHeroEdge";
 import { BookCard } from "@/components/shelf/BookCard";
 import { BookGrid } from "@/components/shelf/BookGrid";
 import { BooksReadBadge } from "@/components/shelf/BooksReadBadge";
+import { SeriesView } from "@/components/shelf/SeriesView";
+import { ViewSwitch } from "@/components/shelf/ViewSwitch";
+import { getSeriesShelf } from "@/lib/seriesShelf";
 import { getShelf } from "@/lib/shelf";
 
-export default async function Home() {
+export default async function Home({ searchParams }: PageProps<"/">) {
   const { books } = await getShelf();
+  // ?view=series groups the shelf by series; anything else shows every book.
+  const view = (await searchParams).view === "series" ? "series" : "books";
 
   return (
     <>
@@ -40,7 +45,14 @@ export default async function Home() {
             </div>
 
             {books.length > 0 ? (
-              <BookGrid items={books.map((book) => ({ book, card: <BookCard book={book} /> }))} />
+              <div className="space-y-6">
+                <ViewSwitch current={view} />
+                {view === "series" ? (
+                  <SeriesView shelf={await getSeriesShelf(books)} />
+                ) : (
+                  <BookGrid items={books.map((book) => ({ book, card: <BookCard book={book} /> }))} />
+                )}
+              </div>
             ) : (
               <p className="py-12 text-center text-lg text-ink-soft">
                 The shelf is waiting for its very first book!

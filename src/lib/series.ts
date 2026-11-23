@@ -5,10 +5,10 @@
 
 import { and, eq, isNull, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { books, series } from "@/db/schema";
+import { books, series, seriesMembers } from "@/db/schema";
 import type { SeriesHint } from "./bookTitle";
 import { env } from "./env";
-import { findHardcoverBook, type HardcoverBook } from "./hardcover";
+import { fetchSeriesMembers, findHardcoverBook, type HardcoverBook } from "./hardcover";
 
 /** What gets saved on the book. */
 export type BookSeriesFields = {
@@ -19,6 +19,8 @@ export type BookSeriesFields = {
 
 /** Hardcover is skipped after this long, so adding a book never hangs on it. */
 const HARDCOVER_TIMEOUT_MS = 6000;
+/** How long a series' saved book list is trusted before it's fetched again. */
+const MEMBERS_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 /** The series to save: Hardcover's when it has one, otherwise the title's tag. */
 export function chooseSeries(hardcover: HardcoverBook | null, hint: SeriesHint | null | undefined) {
@@ -47,8 +49,9 @@ export async function detectSeries(
   }
 
   const chosen = chooseSeries(hardcover, hint);
+  let fields: BookSeriesFields;
   try {
-    return {
+    fields = {
       seriesId: chosen ? await saveSeries(chosen) : null,
       seriesPosition: chosen?.position ?? null,
       hardcoverBookId: hardcover ? await unclaimedHardcoverId(hardcover.bookId, excludeBookId) : null,
@@ -57,6 +60,35 @@ export async function detectSeries(
     console.warn(`Saving the series for “${book.title}” failed:`, err instanceof Error ? err.message : err);
     return { seriesId: null, seriesPosition: null, hardcoverBookId: null };
   }
+
+  // The series' full book list, for the "By series" view's "3 of 12 read".
+  if (token && fields.seriesId !== null && chosen?.hardcoverSeriesId) {
+    try {
+      await refreshSeriesMembers(token, fields.seriesId, chosen.hardcoverSeriesId);
+    } catch (err) {
+      console.warn(`Fetching the books in “${chosen.name}” failed:`, err instanceof Error ? err.message : err);
+    }
+  }
+  return fields;
+}
+
+/** Saves the series' book list from Hardcover, unless it was fetched recently. */
+async function refreshSeriesMembers(token: string, seriesId: number, hardcoverSeriesId: number) {
+  const row = await db().query.series.findFirst({ where: eq(series.id, seriesId) });
+  if (row?.membersFetchedAt && Date.now() - row.membersFetchedAt.getTime() < MEMBERS_MAX_AGE_MS) return;
+
+  const members = await fetchSeriesMembers(token, hardcoverSeriesId, AbortSignal.timeout(HARDCOVER_TIMEOUT_MS));
+  // An empty answer is more likely a hiccup than a series with no books:
+  // keep what was saved before.
+  if (members.length === 0) return;
+
+  await db().batch([
+    db().delete(seriesMembers).where(eq(seriesMembers.seriesId, seriesId)),
+    db()
+      .insert(seriesMembers)
+      .values(members.map((m) => ({ ...m, seriesId }))),
+    db().update(series).set({ membersFetchedAt: new Date() }).where(eq(series.id, seriesId)),
+  ]);
 }
 
 /**

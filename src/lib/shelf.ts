@@ -11,7 +11,9 @@ export type ShelfBook = {
   author: string | null;
   coverUrl: string | null;
   /** The series it's in, and its place in it, when known. */
-  series: { name: string; position: number | null } | null;
+  series: { id: number; name: string; position: number | null } | null;
+  /** The Open Library work it was picked from, if any (used to find its series' book list). */
+  openLibraryWorkId: string | null;
   /** Picked from search (Google Books or, earlier, Open Library): its title and author come from there. */
   fromSearch: boolean;
   /** The most recent reading: what the shelf shows. */
@@ -37,6 +39,7 @@ export async function getShelf(): Promise<Shelf> {
         coverUrl: books.coverUrl,
         openLibraryWorkId: books.openLibraryWorkId,
         googleVolumeId: books.googleVolumeId,
+        seriesId: series.id,
         seriesName: series.name,
         seriesPosition: books.seriesPosition,
         readingId: readings.id,
@@ -58,11 +61,11 @@ export async function getShelf(): Promise<Shelf> {
       seen.timesRead++;
       continue;
     }
-    const { openLibraryWorkId, googleVolumeId, seriesName, seriesPosition, ...book } = row;
+    const { googleVolumeId, seriesId, seriesName, seriesPosition, ...book } = row;
     byBook.set(row.id, {
       ...book,
-      series: seriesName ? { name: seriesName, position: seriesPosition } : null,
-      fromSearch: Boolean(openLibraryWorkId || googleVolumeId),
+      series: seriesId && seriesName ? { id: seriesId, name: seriesName, position: seriesPosition } : null,
+      fromSearch: Boolean(book.openLibraryWorkId || googleVolumeId),
       timesRead: 1,
     });
   }

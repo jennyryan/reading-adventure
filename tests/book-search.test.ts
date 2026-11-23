@@ -114,6 +114,15 @@ describe("GET /api/book-search", () => {
             cover_i: 12345,
             isbn: ["0142410373", "9780142410370"],
           },
+          {
+            key: "/works/OL82537W",
+            title: "Harry Potter and the Chamber of Secrets",
+            author_name: ["J. K. Rowling"],
+            // A German edition listed first: the English one is picked.
+            isbn: ["9783551559029", "9780439420105"],
+            series_name: ["Harry Potter"],
+            series_position: ["2"],
+          },
           { key: "/books/OL2M", title: "An edition, not a work" },
         ],
       }),
@@ -131,6 +140,15 @@ describe("GET /api/book-search", () => {
           googleVolumeId: null,
           openLibraryWorkId: "OL45883W",
           series: null,
+        },
+        {
+          title: "Harry Potter and the Chamber of Secrets",
+          author: "J. K. Rowling",
+          isbn: "9780439420105",
+          coverUrl: null,
+          googleVolumeId: null,
+          openLibraryWorkId: "OL82537W",
+          series: { name: "Harry Potter", position: 2 },
         },
       ],
     });
