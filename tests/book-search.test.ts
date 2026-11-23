@@ -2,38 +2,106 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { GET } from "@/app/api/book-search/route";
 import { makeRequest } from "./helpers";
 
+// tests/setup.ts sets GOOGLE_BOOKS_API_KEY, so search tries Google first.
+
 const search = (q: string) => GET(makeRequest(`/api/book-search?q=${encodeURIComponent(q)}`, { method: "GET" }));
 
-function mockOpenLibrary(response: Response | Error) {
-  const fetchMock = vi.fn(async () => {
-    if (response instanceof Error) throw response;
-    return response;
+/** Answers fetches by host: Google Books and Open Library each get a response (or an error). */
+function mockServices(services: { google?: Response | Error; openLibrary?: Response | Error }) {
+  const fetchMock = vi.fn(async (input: string | URL) => {
+    const host = new URL(String(input)).host;
+    const answer = host === "www.googleapis.com" ? services.google : services.openLibrary;
+    if (!answer) throw new Error(`unexpected fetch to ${host}`);
+    if (answer instanceof Error) throw answer;
+    return answer.clone();
   });
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
 }
 
+const hostsCalled = (fetchMock: ReturnType<typeof mockServices>) =>
+  fetchMock.mock.calls.map((call) => new URL(String((call as unknown[])[0])).host);
+
 afterEach(() => vi.unstubAllGlobals());
 
 describe("GET /api/book-search", () => {
-  it("skips Open Library for queries that are too short", async () => {
-    const fetchMock = mockOpenLibrary(Response.json({ docs: [] }));
+  it("skips the book services for queries that are too short", async () => {
+    const fetchMock = mockServices({});
     const res = await search(" a ");
     expect(await res.json()).toEqual({ results: [] });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("maps Open Library results to what the add form needs", async () => {
-    const fetchMock = mockOpenLibrary(
-      Response.json({
-        docs: [
-          { key: "/works/OL45883W", title: "Matilda", author_name: ["Roald Dahl", "Quentin Blake"], cover_i: 12345 },
-          { key: "/works/OL1W", title: "No Cover Book" },
-          { key: "/books/OL2M", title: "An edition, not a work" },
-          { key: "/works/OL3W" },
+  it("maps Google Books results, one per book, with cleaned-up covers", async () => {
+    mockServices({
+      google: Response.json({
+        items: [
+          {
+            id: "vol1",
+            volumeInfo: {
+              title: "Matilda",
+              authors: ["Roald Dahl", "Quentin Blake"],
+              industryIdentifiers: [
+                { type: "ISBN_10", identifier: "0142410373" },
+                { type: "ISBN_13", identifier: "9780142410370" },
+              ],
+              imageLinks: {
+                thumbnail: "http://books.google.com/books/content?id=vol1&printsec=frontcover&img=1&zoom=1&edge=curl",
+              },
+            },
+          },
+          // Another edition of the same book: merged into the first.
+          { id: "vol2", volumeInfo: { title: "Matilda: 30th Anniversary Edition", authors: ["Roald Dahl"] } },
+          // A cover from somewhere else is dropped, not passed on.
+          {
+            id: "vol3",
+            volumeInfo: { title: "The BFG", authors: ["Roald Dahl"], imageLinks: { thumbnail: "https://evil.example/x.jpg" } },
+          },
+          { id: "vol4", volumeInfo: {} },
         ],
       }),
-    );
+    });
+
+    const res = await search("roald dahl");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      results: [
+        {
+          title: "Matilda",
+          author: "Roald Dahl",
+          isbn: "9780142410370",
+          coverUrl: "https://books.google.com/books/content?id=vol1&printsec=frontcover&img=1&zoom=1",
+          googleVolumeId: "vol1",
+          openLibraryWorkId: null,
+        },
+        {
+          title: "The BFG",
+          author: "Roald Dahl",
+          isbn: null,
+          coverUrl: null,
+          googleVolumeId: "vol3",
+          openLibraryWorkId: null,
+        },
+      ],
+    });
+  });
+
+  it("falls back to Open Library when Google fails", async () => {
+    const fetchMock = mockServices({
+      google: new Response("quota", { status: 429 }),
+      openLibrary: Response.json({
+        docs: [
+          {
+            key: "/works/OL45883W",
+            title: "Matilda",
+            author_name: ["Roald Dahl"],
+            cover_i: 12345,
+            isbn: ["0142410373", "9780142410370"],
+          },
+          { key: "/books/OL2M", title: "An edition, not a work" },
+        ],
+      }),
+    });
 
     const res = await search("matilda");
     expect(res.status).toBe(200);
@@ -42,26 +110,25 @@ describe("GET /api/book-search", () => {
         {
           title: "Matilda",
           author: "Roald Dahl",
-          openLibraryWorkId: "OL45883W",
+          isbn: "9780142410370",
           coverUrl: "https://covers.openlibrary.org/b/id/12345-M.jpg",
+          googleVolumeId: null,
+          openLibraryWorkId: "OL45883W",
         },
-        { title: "No Cover Book", author: null, openLibraryWorkId: "OL1W", coverUrl: null },
       ],
     });
-    const calledUrl = new URL(String((fetchMock.mock.calls[0] as unknown[])[0]));
-    expect(calledUrl.host).toBe("openlibrary.org");
-    expect(calledUrl.searchParams.get("q")).toBe("matilda");
+    expect(hostsCalled(fetchMock)).toEqual(["www.googleapis.com", "openlibrary.org"]);
   });
 
   it("normalizes the query so the same search shares one cache entry", async () => {
-    const fetchMock = mockOpenLibrary(Response.json({ docs: [] }));
+    const fetchMock = mockServices({ google: Response.json({ items: [] }) });
     await search("  Frog   and TOAD ");
     const calledUrl = new URL(String((fetchMock.mock.calls[0] as unknown[])[0]));
     expect(calledUrl.searchParams.get("q")).toBe("frog and toad");
   });
 
-  it("reports a friendly error when Open Library is down", async () => {
-    mockOpenLibrary(new Error("network down"));
+  it("reports a friendly error when both services are down", async () => {
+    mockServices({ google: new Error("network down"), openLibrary: new Error("network down") });
     const res = await search("matilda");
     expect(res.status).toBe(502);
     expect((await res.json()).error).toMatch(/type the book in/);

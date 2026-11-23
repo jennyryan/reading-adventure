@@ -1,7 +1,11 @@
 import { z } from "zod";
 
-/** Image hosts we allow covers from. next.config.ts uses the same list. */
-export const COVER_HOSTS = ["covers.openlibrary.org"] as const;
+/**
+ * Image hosts we allow covers from: Open Library's covers, and Google Books'
+ * cover thumbnails for books Open Library has no cover for. next.config.ts
+ * allows the same two.
+ */
+export const COVER_HOSTS = ["covers.openlibrary.org", "books.google.com"] as const;
 
 export const rating = z.int().min(1).max(5);
 

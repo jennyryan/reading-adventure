@@ -76,7 +76,7 @@ function EditBookForm({
   const [readAt, setReadAt] = useState(book.readAt);
   // A book picked from search keeps the title and author that came with it,
   // but tapping its card searches again to swap in a different book.
-  const fromSearch = book.openLibraryWorkId !== null;
+  const fromSearch = book.fromSearch;
   const [searching, setSearching] = useState(false);
   const [replacement, setReplacement] = useState<Picked | null>(null);
   const shown = replacement ?? book;
@@ -94,7 +94,9 @@ function EditBookForm({
           title: replacement.title,
           author: replacement.author,
           coverUrl: replacement.coverUrl ?? null,
+          isbn: replacement.isbn ?? null,
           openLibraryWorkId: replacement.openLibraryWorkId ?? null,
+          googleVolumeId: replacement.googleVolumeId ?? null,
         }
       : fromSearch
         ? {}

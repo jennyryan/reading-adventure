@@ -10,8 +10,8 @@ export type ShelfBook = {
   title: string;
   author: string | null;
   coverUrl: string | null;
-  /** Set when the book was picked from search; its title and author then come from there. */
-  openLibraryWorkId: string | null;
+  /** Picked from search (Google Books or, earlier, Open Library): its title and author come from there. */
+  fromSearch: boolean;
   /** The most recent reading: what the shelf shows. */
   readingId: number;
   rating: number;
@@ -34,6 +34,7 @@ export async function getShelf(): Promise<Shelf> {
         author: books.author,
         coverUrl: books.coverUrl,
         openLibraryWorkId: books.openLibraryWorkId,
+        googleVolumeId: books.googleVolumeId,
         readingId: readings.id,
         rating: readings.rating,
         readAt: readings.readAt,
@@ -48,8 +49,12 @@ export async function getShelf(): Promise<Shelf> {
   const byBook = new Map<number, ShelfBook>();
   for (const row of rows) {
     const seen = byBook.get(row.id);
-    if (seen) seen.timesRead++;
-    else byBook.set(row.id, { ...row, timesRead: 1 });
+    if (seen) {
+      seen.timesRead++;
+      continue;
+    }
+    const { openLibraryWorkId, googleVolumeId, ...book } = row;
+    byBook.set(row.id, { ...book, fromSearch: Boolean(openLibraryWorkId || googleVolumeId), timesRead: 1 });
   }
 
   return {

@@ -27,6 +27,18 @@ There's no lock: anyone who can open the site can add, edit and delete
 books. Keep the address private, or put the deployment behind Vercel's
 password protection if strangers shouldn't be able to change the shelf.
 
+## Book search
+
+Add Book searches Google Books when `GOOGLE_BOOKS_API_KEY` is set (fast,
+good on recent children's books), and Open Library otherwise or if Google
+fails. Either way the search runs on our server and each search is cached
+for a day. When a book is saved, its cover comes from Open Library by ISBN
+if Open Library has one, since those are larger; otherwise Google's.
+
+Google lists every edition separately, so "already on the shelf" is decided
+by ISBN, or by title and author (ignoring subtitles and punctuation); see
+`src/lib/bookMatch.ts`.
+
 ## Scripts
 
 | Script | What it does |

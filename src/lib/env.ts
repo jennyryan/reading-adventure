@@ -4,10 +4,13 @@
 // Required: DATABASE_URL.
 // Optional: HARDCOVER_TOKEN. Hardcover tokens expire, and an expired token
 // should only hide the Up Next shelf, not take the whole site down.
+// Optional: GOOGLE_BOOKS_API_KEY. Book search works without it, but Google
+// limits keyless requests and shared hosting IPs hit that limit quickly.
 
 export type Env = {
   databaseUrl: string;
   hardcoverToken: string | null;
+  googleBooksApiKey: string | null;
 };
 
 export class EnvError extends Error {
@@ -29,13 +32,14 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
 
   const databaseUrl = read("DATABASE_URL");
   const hardcoverToken = read("HARDCOVER_TOKEN") || null;
+  const googleBooksApiKey = read("GOOGLE_BOOKS_API_KEY") || null;
 
   if (!databaseUrl) problems.push("DATABASE_URL is missing.");
   else if (!/^postgres(ql)?:\/\//.test(databaseUrl))
     problems.push("DATABASE_URL should start with postgres:// or postgresql://.");
 
   if (problems.length > 0) throw new EnvError(problems);
-  return { databaseUrl, hardcoverToken };
+  return { databaseUrl, hardcoverToken, googleBooksApiKey };
 }
 
 let cached: Env | null = null;

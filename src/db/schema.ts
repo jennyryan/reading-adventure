@@ -34,8 +34,13 @@ export const books = pgTable("books", {
   seriesId: integer("series_id").references(() => series.id, { onDelete: "set null" }),
   // Decimal because series include in-between entries like "1.5".
   seriesPosition: numeric("series_position", { mode: "number" }),
-  // Unique so the same book can't be added twice from search.
+  // Unique so the same book can't be added twice from search. Set on books
+  // added before search moved to Google Books.
   openLibraryWorkId: text("open_library_work_id").unique(),
+  // The Google Books volume a book was picked from. Not unique: Google lists
+  // each edition separately, so duplicates are caught by ISBN or by title
+  // and author instead (see src/lib/books.ts).
+  googleVolumeId: text("google_volume_id"),
   hardcoverBookId: integer("hardcover_book_id").unique(),
   createdAt: createdAt(),
 });

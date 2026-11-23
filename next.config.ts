@@ -4,10 +4,14 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   images: {
     // Covers are fetched by our server and re-served from our domain, so
-    // visitors' browsers never contact Open Library directly. Only this
-    // path is allowed. (Open Library redirects to archive.org; Next follows
+    // visitors' browsers never contact Open Library or Google directly.
+    // Only these paths are allowed. (Open Library redirects to archive.org; Next follows
     // up to 3 redirects by default.)
-    remotePatterns: [new URL("https://covers.openlibrary.org/b/**")],
+    remotePatterns: [
+      new URL("https://covers.openlibrary.org/b/**"),
+      // Google Books cover thumbnails (query string varies by book).
+      { protocol: "https", hostname: "books.google.com", pathname: "/books/content" },
+    ],
   },
   async headers() {
     return [

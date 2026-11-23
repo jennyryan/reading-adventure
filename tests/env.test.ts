@@ -5,7 +5,7 @@ const good = { DATABASE_URL: "postgresql://u:p@host/db" };
 
 describe("parseEnv", () => {
   it("accepts a complete config and treats HARDCOVER_TOKEN as optional", () => {
-    expect(parseEnv(good)).toMatchObject({ hardcoverToken: null });
+    expect(parseEnv(good)).toMatchObject({ hardcoverToken: null, googleBooksApiKey: null });
     expect(parseEnv({ ...good, HARDCOVER_TOKEN: "tok" }).hardcoverToken).toBe("tok");
   });
 

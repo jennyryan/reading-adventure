@@ -14,7 +14,9 @@ import {
 } from "./BookDialogParts";
 import { StarPicker } from "./StarPicker";
 
-export type Picked = { title: string; author: string | null; openLibraryWorkId?: string; coverUrl?: string | null };
+/** A book chosen from search (or typed in: just a title and author). */
+export type Picked = Pick<BookSearchResult, "title" | "author"> &
+  Partial<Omit<BookSearchResult, "title" | "author">>;
 
 /**
  * The add-book dialog: find the book (or type it in), give it stars and the
@@ -161,7 +163,7 @@ export function BookSearch({
         {state.kind === "done" && state.results.length > 0 && (
           <ul className="max-h-[45dvh] space-y-2 overflow-y-auto pr-1">
             {state.results.map((book) => (
-              <li key={book.openLibraryWorkId}>
+              <li key={book.googleVolumeId ?? book.openLibraryWorkId ?? `${book.title}-${book.author}`}>
                 <button
                   type="button"
                   onClick={() => onPick(book)}
