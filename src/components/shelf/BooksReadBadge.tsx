@@ -48,7 +48,7 @@ const SPARKLE_PATH =
  * A round gold medal showing how many books Norah has read, set into the top
  * edge of the shelf panel. Put it first in the panel with no padding above
  * it; it lifts itself up so the bump rises out of the panel's edge. The
- * number counts up when the page opens, and the medal wiggles when poked.
+ * number counts up when the page opens.
  */
 export function BooksReadBadge({ read }: { read: number }) {
   const reduce = useReducedMotion();
@@ -90,15 +90,6 @@ export function BooksReadBadge({ read }: { read: number }) {
         initial={reduce ? false : { scale: 0, rotate: -20 }}
         animate={{ scale: 1, rotate: 0 }}
         transition={{ type: "spring", stiffness: 260, damping: 14 }}
-        // The wiggle has several steps, which a spring can't do (motion throws,
-        // and that stops every later animation on the page, like new book
-        // cards fading in). So it gets its own timed transition.
-        whileHover={
-          reduce
-            ? undefined
-            : { rotate: [0, -7, 6, -3, 0], scale: 1.05, transition: { type: "tween", duration: 0.6, ease: "easeInOut" } }
-        }
-        whileTap={reduce ? undefined : { scale: 0.92 }}
       >
         <svg viewBox={`0 0 ${MEDAL} ${MEDAL}`} className="block w-full">
           <defs>
