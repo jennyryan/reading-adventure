@@ -43,7 +43,7 @@ export default async function Home() {
               <BookGrid items={books.map((book) => ({ book, card: <BookCard book={book} /> }))} />
             ) : (
               <p className="py-12 text-center text-lg text-ink-soft">
-                The shelf is waiting for its very first book! 📚
+                The shelf is waiting for its very first book!
               </p>
             )}
           </section>
