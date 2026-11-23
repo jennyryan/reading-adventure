@@ -21,7 +21,8 @@ type OpenLibraryDoc = {
  * as the cover images in next.config.ts).
  */
 export async function GET(req: NextRequest) {
-  const q = req.nextUrl.searchParams.get("q")?.trim() ?? "";
+  // Normalized, so "Frog and Toad" and "frog  and toad" share a cache entry.
+  const q = (req.nextUrl.searchParams.get("q") ?? "").trim().replace(/\s+/g, " ").toLowerCase();
   if (q.length < 2 || q.length > 200) return NextResponse.json({ results: [] });
 
   const url = new URL("https://openlibrary.org/search.json");
@@ -33,7 +34,12 @@ export async function GET(req: NextRequest) {
   try {
     const res = await fetch(url, {
       headers: { "User-Agent": "ReadingAdventure/1.0" },
-      signal: AbortSignal.timeout(20_000),
+      // Open Library often takes several seconds, so remember each search
+      // for a day: repeats come straight from Next's cache.
+      next: { revalidate: 60 * 60 * 24 },
+      // Give up when the visitor moves on (typed more, closed the dialog),
+      // or after 20s.
+      signal: AbortSignal.any([req.signal, AbortSignal.timeout(20_000)]),
     });
     if (!res.ok) throw new Error(`Open Library ${res.status}`);
     docs = ((await res.json()) as { docs?: OpenLibraryDoc[] }).docs ?? [];

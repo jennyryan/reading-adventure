@@ -53,6 +53,13 @@ describe("GET /api/book-search", () => {
     expect(calledUrl.searchParams.get("q")).toBe("matilda");
   });
 
+  it("normalizes the query so the same search shares one cache entry", async () => {
+    const fetchMock = mockOpenLibrary(Response.json({ docs: [] }));
+    await search("  Frog   and TOAD ");
+    const calledUrl = new URL(String((fetchMock.mock.calls[0] as unknown[])[0]));
+    expect(calledUrl.searchParams.get("q")).toBe("frog and toad");
+  });
+
   it("reports a friendly error when Open Library is down", async () => {
     mockOpenLibrary(new Error("network down"));
     const res = await search("matilda");

@@ -73,6 +73,13 @@ function AddBookForm({ onDone }: { onDone: (bookId: number) => void }) {
   );
 }
 
+/**
+ * Results already fetched while the page is open, by normalized query, so
+ * going back to an earlier search (or reopening one) shows it instantly.
+ */
+const searchCache = new Map<string, BookSearchResult[]>();
+const cacheKey = (q: string) => q.trim().replace(/\s+/g, " ").toLowerCase();
+
 /** Search Open Library (through our server) and pick a book. */
 export function BookSearch({
   onPick,
@@ -93,13 +100,19 @@ export function BookSearch({
     | { kind: "error"; message: string }
   >({ kind: "idle" });
 
-  // Search a moment after typing stops; a newer search cancels an older one.
+  // Search a moment after typing stops; a newer search cancels an older one
+  // (all the way to Open Library). Searches seen before show at once.
   useEffect(() => {
-    const q = query.trim();
+    const q = cacheKey(query);
+    const cached = searchCache.get(q);
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       if (q.length < 2) {
         setState({ kind: "idle" });
+        return;
+      }
+      if (cached) {
+        setState({ kind: "done", results: cached });
         return;
       }
       setState({ kind: "loading" });
@@ -107,7 +120,9 @@ export function BookSearch({
         const res = await fetch(`/api/book-search?q=${encodeURIComponent(q)}`, { signal: controller.signal });
         const data = (await res.json()) as { results?: BookSearchResult[]; error?: string };
         if (!res.ok) throw new Error(data.error);
-        setState({ kind: "done", results: data.results ?? [] });
+        const results = data.results ?? [];
+        searchCache.set(q, results);
+        setState({ kind: "done", results });
       } catch (err) {
         if (controller.signal.aborted) return;
         setState({
@@ -115,7 +130,7 @@ export function BookSearch({
           message: err instanceof Error && err.message ? err.message : "Search isn't working right now.",
         });
       }
-    }, 350);
+    }, cached ? 0 : 350);
     return () => {
       clearTimeout(timer);
       controller.abort();
