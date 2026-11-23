@@ -5,7 +5,8 @@ import { db } from "@/db";
 import { books } from "@/db/schema";
 import { bestCover, findSameBook } from "@/lib/books";
 import { jsonError, parseBody, parseId } from "@/lib/http";
-import { coverUrl } from "@/lib/validation";
+import { detectSeries } from "@/lib/series";
+import { coverUrl, seriesHint } from "@/lib/validation";
 
 type Ctx = RouteContext<"/api/books/[id]">;
 
@@ -18,9 +19,11 @@ const Patch = z
     isbn: z.string().trim().max(20).nullable(),
     openLibraryWorkId: z.string().regex(/^OL\d+W$/).nullable(),
     googleVolumeId: z.string().regex(/^[\w-]{1,40}$/).nullable(),
+    // The search result's series tag, sent along with a replacement book.
+    series: seriesHint.nullable(),
   })
   .partial()
-  .refine((v) => Object.keys(v).length > 0, "Nothing to update");
+  .refine((v) => Object.keys(v).some((k) => k !== "series"), "Nothing to update");
 
 /** Edit a book's details, or swap in a different book picked from search. */
 export async function PATCH(req: NextRequest, ctx: Ctx) {
@@ -32,7 +35,8 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 
   const current = await db().query.books.findFirst({ where: eq(books.id, id) });
   if (!current) return jsonError(404, "Book not found.");
-  const changes = { ...parsed.data };
+  const { series: hint, ...fields } = parsed.data;
+  const changes = { ...fields };
 
   // A book can only be on the shelf once: check the edited book against
   // every other one (same ISBN or work, or same title and author).
@@ -46,7 +50,11 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   // it has one for this ISBN.
   if ("isbn" in changes) changes.coverUrl = await bestCover(changes.isbn, changes.coverUrl);
 
-  const [book] = await db().update(books).set(changes).where(eq(books.id, id)).returning();
+  // A different book, or a corrected title or author, may be in a
+  // different series: look it up again.
+  const seriesFields = identityChanged ? await detectSeries({ ...current, ...changes }, hint, id) : {};
+
+  const [book] = await db().update(books).set({ ...changes, ...seriesFields }).where(eq(books.id, id)).returning();
   return book ? NextResponse.json({ book }) : jsonError(404, "Book not found.");
 }
 

@@ -1,7 +1,7 @@
 import { desc, eq } from "drizzle-orm";
 import { connection } from "next/server";
 import { db } from "@/db";
-import { books, readings, settings } from "@/db/schema";
+import { books, readings, series, settings } from "@/db/schema";
 
 export const DEFAULT_READING_GOAL = 20;
 
@@ -10,6 +10,8 @@ export type ShelfBook = {
   title: string;
   author: string | null;
   coverUrl: string | null;
+  /** The series it's in, and its place in it, when known. */
+  series: { name: string; position: number | null } | null;
   /** Picked from search (Google Books or, earlier, Open Library): its title and author come from there. */
   fromSearch: boolean;
   /** The most recent reading: what the shelf shows. */
@@ -35,12 +37,15 @@ export async function getShelf(): Promise<Shelf> {
         coverUrl: books.coverUrl,
         openLibraryWorkId: books.openLibraryWorkId,
         googleVolumeId: books.googleVolumeId,
+        seriesName: series.name,
+        seriesPosition: books.seriesPosition,
         readingId: readings.id,
         rating: readings.rating,
         readAt: readings.readAt,
       })
       .from(readings)
       .innerJoin(books, eq(readings.bookId, books.id))
+      .leftJoin(series, eq(books.seriesId, series.id))
       .orderBy(desc(readings.readAt), desc(readings.id)),
     db().select().from(settings).limit(1),
   ]);
@@ -53,8 +58,13 @@ export async function getShelf(): Promise<Shelf> {
       seen.timesRead++;
       continue;
     }
-    const { openLibraryWorkId, googleVolumeId, ...book } = row;
-    byBook.set(row.id, { ...book, fromSearch: Boolean(openLibraryWorkId || googleVolumeId), timesRead: 1 });
+    const { openLibraryWorkId, googleVolumeId, seriesName, seriesPosition, ...book } = row;
+    byBook.set(row.id, {
+      ...book,
+      series: seriesName ? { name: seriesName, position: seriesPosition } : null,
+      fromSearch: Boolean(openLibraryWorkId || googleVolumeId),
+      timesRead: 1,
+    });
   }
 
   return {

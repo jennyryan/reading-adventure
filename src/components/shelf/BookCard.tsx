@@ -17,6 +17,11 @@ export function pastelFor(bookId: number) {
   return PASTELS[bookId % PASTELS.length];
 }
 
+/** "Dog Man #9", or just "Frog and Toad" when the book's place isn't known. */
+export function seriesLabel(series: { name: string; position: number | null }) {
+  return series.position === null ? series.name : `${series.name} #${series.position}`;
+}
+
 export function BookCard({ book }: { book: ShelfBook }) {
   return (
     <article className={`flex h-full flex-col items-center gap-3 rounded-3xl p-4 text-center shadow-sm ${pastelFor(book.id)}`}>
@@ -36,6 +41,11 @@ export function BookCard({ book }: { book: ShelfBook }) {
         )}
       </div>
       <div className="flex flex-1 flex-col items-center gap-1">
+        {book.series && (
+          <p className="rounded-full bg-white/70 px-2.5 py-0.5 text-xs font-semibold text-ink-soft">
+            {seriesLabel(book.series)}
+          </p>
+        )}
         <h3 className="line-clamp-2 text-lg leading-snug font-semibold">{book.title}</h3>
         {book.author && <p className="text-sm text-ink-soft">{book.author}</p>}
         <Stars rating={book.rating} />

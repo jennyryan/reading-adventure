@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isSameBook } from "@/lib/bookMatch";
-import { cleanTitle } from "@/lib/bookTitle";
+import { cleanTitle, seriesFromTitle, type SeriesHint } from "@/lib/bookTitle";
 import { env } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 
@@ -13,6 +13,8 @@ export type BookSearchResult = {
   googleVolumeId: string | null;
   /** The Open Library work, when the result came from Open Library. */
   openLibraryWorkId: string | null;
+  /** The series tag in the service's title, e.g. "(Dog Man #9)": a fallback for series detection. */
+  series: SeriesHint | null;
 };
 
 const MAX_RESULTS = 8;
@@ -103,6 +105,7 @@ async function searchGoogle(q: string, key: string, signal: AbortSignal): Promis
         coverUrl: googleCover(v.imageLinks?.thumbnail),
         googleVolumeId: id,
         openLibraryWorkId: null,
+        series: seriesFromTitle(v.title),
       },
     ];
   });
@@ -158,6 +161,7 @@ async function searchOpenLibrary(q: string, signal: AbortSignal): Promise<BookSe
         coverUrl: doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg` : null,
         googleVolumeId: null,
         openLibraryWorkId: workId,
+        series: seriesFromTitle(doc.title),
       },
     ];
   });

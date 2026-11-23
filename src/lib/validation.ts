@@ -25,3 +25,9 @@ export const coverUrl = z
   });
 
 export const readingGoal = z.int().min(1).max(1000);
+
+/** A series hint from book search: its name, and the book's place in it. */
+export const seriesHint = z.object({
+  name: z.string().trim().min(1).max(200),
+  position: z.number().min(0).max(10000).nullable(),
+});

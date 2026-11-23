@@ -58,6 +58,11 @@ describe("GET /api/book-search", () => {
             volumeInfo: { title: "The BFG", authors: ["Roald Dahl"], imageLinks: { thumbnail: "https://evil.example/x.jpg" } },
           },
           { id: "vol4", volumeInfo: {} },
+          // A series tag in the title is trimmed off, and kept as a series hint.
+          {
+            id: "vol5",
+            volumeInfo: { title: "Dog Man Unleashed: A Graphic Novel (Dog Man #2)", authors: ["Dav Pilkey"] },
+          },
         ],
       }),
     });
@@ -73,6 +78,7 @@ describe("GET /api/book-search", () => {
           coverUrl: "https://books.google.com/books/content?id=vol1&printsec=frontcover&img=1&zoom=1",
           googleVolumeId: "vol1",
           openLibraryWorkId: null,
+          series: null,
         },
         {
           title: "The BFG",
@@ -81,6 +87,16 @@ describe("GET /api/book-search", () => {
           coverUrl: null,
           googleVolumeId: "vol3",
           openLibraryWorkId: null,
+          series: null,
+        },
+        {
+          title: "Dog Man Unleashed",
+          author: "Dav Pilkey",
+          isbn: null,
+          coverUrl: null,
+          googleVolumeId: "vol5",
+          openLibraryWorkId: null,
+          series: { name: "Dog Man", position: 2 },
         },
       ],
     });
@@ -114,6 +130,7 @@ describe("GET /api/book-search", () => {
           coverUrl: "https://covers.openlibrary.org/b/id/12345-M.jpg",
           googleVolumeId: null,
           openLibraryWorkId: "OL45883W",
+          series: null,
         },
       ],
     });

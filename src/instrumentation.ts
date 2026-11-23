@@ -6,6 +6,8 @@ export async function register() {
   const { env } = await import("./lib/env");
   const { hardcoverToken } = env();
   if (!hardcoverToken) {
-    console.warn("HARDCOVER_TOKEN is not set: the Up Next series shelf will be hidden.");
+    console.warn(
+      "HARDCOVER_TOKEN is not set: series are only detected from search titles, and the Up Next series shelf will be hidden.",
+    );
   }
 }

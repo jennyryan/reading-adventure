@@ -97,6 +97,7 @@ function EditBookForm({
           isbn: replacement.isbn ?? null,
           openLibraryWorkId: replacement.openLibraryWorkId ?? null,
           googleVolumeId: replacement.googleVolumeId ?? null,
+          series: replacement.series ?? null,
         }
       : fromSearch
         ? {}

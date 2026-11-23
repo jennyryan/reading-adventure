@@ -44,3 +44,33 @@ export function cleanTitle(raw: string) {
   // Never trim a title away entirely.
   return title.trim() || raw.trim();
 }
+
+/** A series a book belongs to, and where it falls in it (when known). */
+export type SeriesHint = { name: string; position: number | null };
+
+/**
+ * The series named in a raw title's tag, before cleanTitle drops it:
+ * "Dog Man and Cat Kid (Dog Man #4), 4" -> Dog Man, 4;
+ * "Ramona the Pest (Ramona, #2)" -> Ramona, 2;
+ * "Frog and Toad Together (Frog and Toad)" -> Frog and Toad, no position.
+ * A tag without a number only counts when the title itself starts with
+ * it, so "(Illustrated)" or "(Paperback)" are never taken for a series.
+ */
+export function seriesFromTitle(raw: string): SeriesHint | null {
+  const title = raw.replace(/\s+/g, " ").trim();
+  const main = title.split(/[:(]/)[0].trim();
+
+  for (const [, inside] of title.matchAll(/\(([^)]+)\)/g)) {
+    const numbered = inside.match(/^(.+?)[\s,]*(?:#|\bbook\s+|\bvol(?:ume)?\.?\s+)(\d+(?:\.\d+)?)$/i);
+    if (numbered) {
+      const name = numbered[1].replace(/[\s,]+$/, "").trim();
+      if (name) return { name, position: Number(numbered[2]) };
+      continue;
+    }
+    const name = inside.trim();
+    if (!/\d/.test(name) && main.toLowerCase().startsWith(name.toLowerCase()) && name.length < main.length) {
+      return { name, position: null };
+    }
+  }
+  return null;
+}
