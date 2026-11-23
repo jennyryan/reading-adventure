@@ -1,7 +1,6 @@
 # Norah's Reading Adventure
 
-A storybook-style reading log for one young reader. Visitors can look; a
-grown-up unlocks editing with a passcode.
+A storybook-style reading log for one young reader.
 
 ## Getting started
 
@@ -22,14 +21,11 @@ docker compose up -d
 DATABASE_URL=postgresql://postgres:postgres@db.localtest.me:5432/main
 ```
 
-## How unlocking works
+## No sign-in
 
-Visitors see a read-only shelf. The footer "Grown-ups" button takes the
-passcode; on success the server sets a signed, httpOnly cookie for 30 days.
-Every write route checks that cookie (and the request's Origin) on the
-server, see `src/lib/auth/guard.ts`. Passcode tries are limited to 5 per
-device and 30 overall per 15 minutes. Changing `SESSION_SECRET` signs
-everyone out.
+There's no lock: anyone who can open the site can add, edit and delete
+books. Keep the address private, or put the deployment behind Vercel's
+password protection if strangers shouldn't be able to change the shelf.
 
 ## Scripts
 

@@ -1,4 +1,5 @@
 import { desc, eq } from "drizzle-orm";
+import { connection } from "next/server";
 import { db } from "@/db";
 import { books, readings, settings } from "@/db/schema";
 
@@ -9,6 +10,8 @@ export type ShelfBook = {
   title: string;
   author: string | null;
   coverUrl: string | null;
+  /** Set when the book was picked from search; its title and author then come from there. */
+  openLibraryWorkId: string | null;
   /** The most recent reading: what the shelf shows. */
   readingId: number;
   rating: number;
@@ -20,6 +23,9 @@ export type Shelf = { books: ShelfBook[]; readingGoal: number };
 
 /** Everything the home page needs, newest finished book first. */
 export async function getShelf(): Promise<Shelf> {
+  // The shelf changes whenever a book is added, edited or deleted, so read it
+  // on every request rather than once at build time.
+  await connection();
   const [rows, settingsRows] = await db().batch([
     db()
       .select({
@@ -27,6 +33,7 @@ export async function getShelf(): Promise<Shelf> {
         title: books.title,
         author: books.author,
         coverUrl: books.coverUrl,
+        openLibraryWorkId: books.openLibraryWorkId,
         readingId: readings.id,
         rating: readings.rating,
         readAt: readings.readAt,

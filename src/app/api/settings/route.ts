@@ -1,15 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { db } from "@/db";
 import { settings } from "@/db/schema";
-import { requireGrownup } from "@/lib/auth/guard";
 import { parseBody } from "@/lib/http";
 import { readingGoal } from "@/lib/validation";
 
 const Body = z.object({ readingGoal });
 
 /** Change the reading goal (the "N" in "X of N books read"). */
-export const PUT = requireGrownup(async (req) => {
+export async function PUT(req: NextRequest) {
   const parsed = await parseBody(req, Body);
   if ("response" in parsed) return parsed.response;
 
@@ -19,4 +18,4 @@ export const PUT = requireGrownup(async (req) => {
     .onConflictDoUpdate({ target: settings.id, set: { readingGoal: parsed.data.readingGoal } })
     .returning();
   return NextResponse.json({ settings: row });
-});
+}

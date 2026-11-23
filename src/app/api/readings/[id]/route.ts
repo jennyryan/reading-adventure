@@ -1,9 +1,8 @@
 import { eq } from "drizzle-orm";
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { db } from "@/db";
 import { readings } from "@/db/schema";
-import { requireGrownup } from "@/lib/auth/guard";
 import { jsonError, parseBody, parseId } from "@/lib/http";
 import { isoDate, rating } from "@/lib/validation";
 
@@ -13,7 +12,7 @@ const Patch = z
   .refine((v) => Object.keys(v).length > 0, "Nothing to update");
 
 /** Change the stars or finished date on one reading. */
-export const PATCH = requireGrownup(async (req, ctx: RouteContext<"/api/readings/[id]">) => {
+export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/readings/[id]">) {
   const id = parseId((await ctx.params).id);
   if (!id) return jsonError(404, "Reading not found.");
 
@@ -26,4 +25,4 @@ export const PATCH = requireGrownup(async (req, ctx: RouteContext<"/api/readings
     .where(eq(readings.id, id))
     .returning();
   return reading ? NextResponse.json({ reading }) : jsonError(404, "Reading not found.");
-});
+}

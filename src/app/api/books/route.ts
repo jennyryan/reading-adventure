@@ -1,9 +1,8 @@
 import { eq } from "drizzle-orm";
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { db } from "@/db";
 import { books, readings } from "@/db/schema";
-import { requireGrownup } from "@/lib/auth/guard";
 import { parseBody } from "@/lib/http";
 import { coverUrl, isoDate, rating } from "@/lib/validation";
 
@@ -18,7 +17,7 @@ const Body = z.object({
 });
 
 /** Add a book Norah finished. Adding a book she already has logs a re-read. */
-export const POST = requireGrownup(async (req) => {
+export async function POST(req: NextRequest) {
   const parsed = await parseBody(req, Body);
   if ("response" in parsed) return parsed.response;
   const { rating, readAt, ...bookFields } = parsed.data;
@@ -36,4 +35,4 @@ export const POST = requireGrownup(async (req) => {
     .returning();
 
   return NextResponse.json({ book, reading }, { status: 201 });
-});
+}

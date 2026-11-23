@@ -4,7 +4,7 @@
    card and on every pastel book color. */
 @theme {
   --font-sans: var(--font-fredoka), ui-rounded, system-ui, sans-serif;
-  --font-script: var(--font-pacifico), cursive;
+  --font-display: var(--font-cherry-swash), Georgia, serif;
 
   --color-cream: #fff8ec;
   --color-cream-deep: #f6e6c8;
@@ -37,48 +37,147 @@ body {
   color: var(--color-ink);
 }
 
-/* Twinkling stars in the hero. Each star sets its own --twinkle-delay. */
-@keyframes twinkle {
-  0%,
-  100% {
-    opacity: 0.95;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.35;
-    transform: scale(0.7);
-  }
+/* ---------- Hero scene ---------- */
+
+/* The stage is the hero picture at its exact 1376x768 aspect ratio, sized
+   like object-fit: cover using the frame's container units: pinned to the
+   top edge, and cropped slightly right of center on narrow screens so the
+   castle stays in view. Effects placed in picture coordinates then stay put. */
+.hero-frame {
+  container-type: size;
 }
 
-.star-twinkle {
+.hero-stage {
+  --stage-w: max(100cqw, 100cqh * 1376 / 768);
+  --stage-h: max(100cqh, 100cqw * 768 / 1376);
+  position: absolute;
+  width: var(--stage-w);
+  height: var(--stage-h);
+  left: calc((100cqw - var(--stage-w)) * 0.55);
+  top: 0;
+}
+
+.hero-sun,
+.hero-breathe,
+.hero-flicker,
+.hero-twinkle,
+.hero-glint,
+.hero-firefly,
+.hero-balloon {
   transform-box: fill-box;
   transform-origin: center;
-  animation: twinkle var(--twinkle-duration, 3.5s) ease-in-out var(--twinkle-delay, 0s) infinite;
+  animation-duration: var(--duration, 4s);
+  animation-delay: var(--delay, 0s);
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
 }
 
-@keyframes moon-glow {
-  0%,
-  100% {
-    opacity: 0.55;
-  }
-  50% {
-    opacity: 0.8;
-  }
+@keyframes hero-sun {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.12); }
 }
+.hero-sun { animation-name: hero-sun; animation-duration: 7s; }
 
-.moon-glow {
-  animation: moon-glow 6s ease-in-out infinite;
+@keyframes hero-breathe {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.85; }
 }
+.hero-breathe { animation-name: hero-breathe; }
+
+/* Uneven steps read as a candle flame rather than a smooth pulse. */
+@keyframes hero-flicker {
+  0%, 100% { opacity: 0.75; transform: scale(1); }
+  18% { opacity: 0.95; transform: scale(1.06); }
+  34% { opacity: 0.6; transform: scale(0.96); }
+  52% { opacity: 0.9; transform: scale(1.03); }
+  70% { opacity: 0.55; transform: scale(0.95); }
+  86% { opacity: 0.85; transform: scale(1.02); }
+}
+.hero-flicker { animation-name: hero-flicker; animation-timing-function: linear; }
+
+/* Tree lights: mostly dim, with a quick bright sparkle partway through. */
+@keyframes hero-twinkle {
+  0%, 100% { opacity: 0.15; transform: scale(0.6) rotate(0deg); }
+  40% { opacity: 0.35; transform: scale(0.75) rotate(10deg); }
+  55% { opacity: 1; transform: scale(1.15) rotate(45deg); }
+  70% { opacity: 0.4; transform: scale(0.8) rotate(60deg); }
+}
+.hero-twinkle { animation-name: hero-twinkle; }
+
+@keyframes hero-glint {
+  0%, 100% { opacity: 0; transform: scaleX(0.4); }
+  45%, 55% { opacity: 0.8; transform: scaleX(1); }
+}
+.hero-glint { animation-name: hero-glint; }
+
+@keyframes hero-firefly {
+  0% { opacity: 0; transform: translate(0, 0); }
+  20% { opacity: 1; }
+  50% { opacity: 0.4; transform: translate(calc(var(--dx) * 0.6), calc(var(--dy) * 0.5)); }
+  75% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)); }
+}
+.hero-firefly { animation-name: hero-firefly; }
+
+/* The balloon drifts a little sideways and bobs, tilting as it goes. */
+@keyframes hero-balloon {
+  0%, 100% { transform: translate(0, 0) rotate(-1.5deg); }
+  50% { transform: translate(14%, -7%) rotate(1.5deg); }
+}
+.hero-balloon { animation-name: hero-balloon; animation-duration: 10s; }
 
 @media (prefers-reduced-motion: reduce) {
-  .star-twinkle,
-  .moon-glow {
+  .hero-sun,
+  .hero-breathe,
+  .hero-flicker,
+  .hero-twinkle,
+  .hero-glint,
+  .hero-firefly,
+  .hero-balloon {
     animation: none;
   }
 }
 
-/* A clear, friendly focus ring for keyboard users everywhere. */
-:focus-visible {
+/* A book card that was just added glows pink for a moment. */
+@keyframes just-added {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(236 72 153 / 0); }
+  25%, 60% { box-shadow: 0 0 0 6px rgb(236 72 153 / 0.55); }
+}
+.just-added {
+  border-radius: 1.5rem;
+  animation: just-added 2.4s ease-in-out 0.6s;
+}
+
+/* The green area below the hero: the same teal-to-deep-green gradient as
+   before, with staggered polka dots in a faint white so they always read
+   as just slightly lighter than the green behind them. */
+.polka-backdrop {
+  --dot: radial-gradient(circle, rgb(255 255 255 / 0.07) 2.5px, transparent 3px);
+  background-color: #4f9a8c;
+  background-image: var(--dot), var(--dot), linear-gradient(to bottom, #4f9a8c, #356f66);
+  background-size: 24px 24px, 24px 24px, 100% 100%;
+  background-position: 0 0, 12px 12px, 0 0;
+}
+
+/* Tailwind resets buttons to the plain arrow; everything clickable gets the
+   hand instead. Disabled buttons keep the arrow. */
+@layer base {
+  a[href],
+  button:not(:disabled),
+  [role="button"],
+  summary,
+  label:has(> input[type="radio"], > input[type="checkbox"]),
+  input[type="radio"],
+  input[type="checkbox"],
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  select {
+    cursor: pointer;
+  }
+}
+
+/* A clear, friendly focus ring for keyboard users on buttons and links.
+   Text boxes go without: the blinking cursor already shows where you are. */
+:focus-visible:not(input, textarea, select) {
   outline: 3px solid var(--color-pink);
   outline-offset: 3px;
   border-radius: 0.5rem;

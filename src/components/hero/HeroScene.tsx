@@ -1,17 +1,24 @@
 "use client";
 
-import { motion, useReducedMotion, useScroll, useTransform, type MotionValue } from "motion/react";
-import type { ReactNode } from "react";
-import { Ribbon } from "./Ribbon";
+import Image from "next/image";
+import { motion, useReducedMotion, useScroll, useTransform } from "motion/react";
+import type { CSSProperties } from "react";
+import balloon from "./balloon.png";
+import storybookLand from "./storybook-land.jpg";
 
-// The dusk landscape, drawn entirely in code: a CSS gradient sky with
-// stacked SVG layers on top. Every layer shares one 1440x720 coordinate
-// space and is anchored to the bottom edge, so on narrow screens the sides
-// crop instead of squashing.
+// The hero is one illustrated landscape (generated with Gemini) brought to
+// life in code: glowing lanterns and windows, twinkles in the big tree,
+// drifting fireflies, glints on the pond, and the balloon (cut out of the
+// picture) floating on its own. Everything lives on a "stage" that keeps the
+// picture's exact aspect ratio, so the effects stay on their spots however
+// the picture is cropped (see .hero-stage in globals.css).
+//
+// All positions are pixels in the 1376x768 source image.
 
-const VIEWBOX = "0 0 1440 720";
+const W = 1376;
+const H = 768;
 
-/** Small deterministic random generator, so server and browser draw the same stars. */
+/** Small deterministic random generator, so server and browser agree. */
 function seeded(seed: number) {
   return () => {
     seed = (seed + 0x6d2b79f5) | 0;
@@ -21,99 +28,192 @@ function seeded(seed: number) {
   };
 }
 
-const STARS = (() => {
-  const rand = seeded(7);
-  return Array.from({ length: 34 }, (_, i) => ({
-    x: Math.round(rand() * 1440),
-    y: Math.round(20 + rand() * 330),
-    size: 2 + rand() * 4,
-    sparkle: i % 4 === 0, // every 4th star is a four-point sparkle
-    delay: (rand() * 4).toFixed(2),
-    duration: (2.5 + rand() * 3).toFixed(2),
-  }));
-})();
+type Point = [x: number, y: number];
 
-function Layer({
+const LANTERNS: Point[] = [
+  [257, 168], [299, 211], [156, 214], [136, 271], [427, 239],
+  [152, 366], [388, 371], [389, 468], [162, 471], [723, 550],
+];
+
+const WINDOWS: Point[] = [
+  [214, 218], [354, 200], [341, 293], [214, 386], [341, 389], [314, 507],
+  [1225, 248], [1277, 257], [1192, 273], [1108, 337], [1312, 383], [1314, 440], [1318, 530],
+];
+
+const GLOW_FLOWERS: Point[] = [
+  [111, 661], [71, 691], [171, 682], [129, 711], [50, 607], [107, 541], [1131, 692],
+];
+
+const POND_GLINTS: Point[] = [
+  [790, 632], [826, 668], [905, 655], [942, 642], [872, 682], [955, 670],
+];
+
+const rand = seeded(11);
+
+/**
+ * The lights painted into the big tree on the left: star-shaped sparkles
+ * ("star") and small glowing dots ("dot"), in the canopy and in the fairy
+ * lights hanging left of the trunk. Each one twinkles on its own rhythm.
+ */
+const TREE_LIGHTS = (
+  [
+    // canopy
+    [120, 35, "star"], [245, 20, "star"], [272, 43, "star"], [313, 67, "star"],
+    [369, 43, "star"], [136, 98, "star"], [197, 92, "star"], [394, 98, "star"],
+    [476, 110, "star"], [69, 147, "star"], [363, 145, "star"], [392, 150, "star"],
+    [497, 145, "star"], [92, 65, "dot"], [153, 58, "dot"], [100, 156, "dot"],
+    [118, 205, "dot"], [143, 107, "dot"], [119, 127, "dot"], [247, 125, "dot"],
+    [204, 167, "dot"], [305, 115, "dot"], [515, 133, "dot"], [348, 33, "dot"],
+    // fairy lights left of the trunk
+    [41, 348, "star"], [112, 360, "star"], [59, 385, "star"], [118, 318, "star"],
+    [137, 392, "star"], [16, 370, "dot"], [74, 356, "dot"], [87, 385, "dot"],
+    [6, 358, "dot"], [64, 370, "dot"], [122, 390, "dot"], [61, 414, "dot"],
+    [148, 506, "dot"],
+  ] as [number, number, "star" | "dot"][]
+).map(([x, y, kind]) => ({
+  x,
   y,
-  className = "",
-  children,
-}: {
-  y: MotionValue<number>;
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <motion.div className={`absolute inset-0 will-change-transform ${className}`} style={{ y }}>
-      <svg
-        viewBox={VIEWBOX}
-        preserveAspectRatio="xMidYMax slice"
-        className="h-full w-full"
-        aria-hidden="true"
-        focusable="false"
-      >
-        {children}
-      </svg>
-    </motion.div>
-  );
+  kind,
+  delay: rand() * 4,
+  duration: 1.8 + rand() * 2.6,
+}));
+
+/** Fireflies drifting near the willow, the garden and the pond. */
+const FIREFLIES = [
+  ...Array.from({ length: 8 }, () => [960 + rand() * 220, 400 + rand() * 180] as Point),
+  ...Array.from({ length: 9 }, () => [30 + rand() * 520, 480 + rand() * 250] as Point),
+  ...Array.from({ length: 5 }, () => [700 + rand() * 320, 560 + rand() * 150] as Point),
+].map(([x, y]) => ({
+  x: Math.round(x),
+  y: Math.round(y),
+  dx: Math.round((rand() - 0.5) * 50),
+  dy: Math.round(-10 - rand() * 30),
+  delay: rand() * 8,
+  duration: 6 + rand() * 6,
+}));
+
+/** Spreads a seeded delay/duration onto CSS custom properties. */
+function timing(delay: number, duration: number, extra: Record<string, string> = {}) {
+  return {
+    "--delay": `${delay.toFixed(2)}s`,
+    "--duration": `${duration.toFixed(2)}s`,
+    ...extra,
+  } as CSSProperties;
 }
 
-/** Soft, slightly wobbly "watercolor" edges and a faint paper grain. */
-function WatercolorDefs({ id, scale = 12 }: { id: string; scale?: number }) {
-  return (
-    <defs>
-      <filter id={id} x="-5%" y="-5%" width="110%" height="110%">
-        <feTurbulence type="fractalNoise" baseFrequency="0.011" numOctaves="3" seed="3" result="wobble" />
-        <feDisplacementMap in="SourceGraphic" in2="wobble" scale={scale} result="wobbly" />
-        <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="5" result="grain" />
-        <feColorMatrix
-          in="grain"
-          type="matrix"
-          values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.08 0"
-          result="grainAlpha"
-        />
-        <feComposite in="grainAlpha" in2="wobbly" operator="in" result="grainOnShape" />
-        <feMerge>
-          <feMergeNode in="wobbly" />
-          <feMergeNode in="grainOnShape" />
-        </feMerge>
-      </filter>
-    </defs>
-  );
-}
+/** Percent of the stage, for absolutely placed HTML layers. */
+const pct = (v: number, of: number) => `${((v / of) * 100).toFixed(3)}%`;
 
-function Tree({ x, y, s = 1, color }: { x: number; y: number; s?: number; color: string }) {
-  // A storybook "lollipop" tree: rounded canopy on a little trunk.
+function Glows() {
   return (
-    <g transform={`translate(${x} ${y}) scale(${s})`}>
-      <rect x={-4} y={-46} width={8} height={50} rx={4} fill="#6d5a7e" />
-      <path
-        d="M0 -150 C 34 -150 48 -112 46 -86 C 44 -58 24 -40 0 -40 C -24 -40 -44 -58 -46 -86 C -48 -112 -34 -150 0 -150 Z"
-        fill={color}
-      />
-      <path d="M-14 -124 C -6 -134 8 -136 16 -128" stroke="#ffffff" strokeOpacity={0.35} strokeWidth={5} strokeLinecap="round" fill="none" />
-    </g>
-  );
-}
-
-function Moon() {
-  return (
-    <svg viewBox="-170 -170 340 340" className="w-full" aria-hidden="true" focusable="false">
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio="none"
+      className="absolute inset-0 h-full w-full mix-blend-screen"
+      aria-hidden="true"
+      focusable="false"
+    >
       <defs>
-        <radialGradient id="moon-glow-gradient">
-          <stop offset="0%" stopColor="#fff9e3" stopOpacity="0.9" />
-          <stop offset="45%" stopColor="#ffe9f3" stopOpacity="0.35" />
-          <stop offset="100%" stopColor="#ffe9f3" stopOpacity="0" />
+        <radialGradient id="glow-warm">
+          <stop offset="0%" stopColor="#fff2b8" stopOpacity="0.95" />
+          <stop offset="35%" stopColor="#ffc96b" stopOpacity="0.45" />
+          <stop offset="100%" stopColor="#ffb347" stopOpacity="0" />
         </radialGradient>
-        <radialGradient id="moon-face" cx="40%" cy="38%">
-          <stop offset="0%" stopColor="#fffdf3" />
-          <stop offset="100%" stopColor="#fbeec7" />
+        <radialGradient id="glow-sun">
+          <stop offset="0%" stopColor="#fff7d1" stopOpacity="0.8" />
+          <stop offset="55%" stopColor="#ffe9a8" stopOpacity="0.3" />
+          <stop offset="100%" stopColor="#ffe9a8" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id="glow-fairy">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
+          <stop offset="30%" stopColor="#fdf6b2" stopOpacity="0.7" />
+          <stop offset="100%" stopColor="#c8f7d8" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id="glow-bloom">
+          <stop offset="0%" stopColor="#fff0f6" stopOpacity="0.85" />
+          <stop offset="40%" stopColor="#ffd0a8" stopOpacity="0.4" />
+          <stop offset="100%" stopColor="#ff9ec7" stopOpacity="0" />
         </radialGradient>
       </defs>
-      <circle className="moon-glow" r={170} fill="url(#moon-glow-gradient)" />
-      <circle r={58} fill="url(#moon-face)" />
-      <circle cx={-18} cy={-14} r={9} fill="#f3dfb0" opacity={0.6} />
-      <circle cx={20} cy={18} r={6} fill="#f3dfb0" opacity={0.5} />
-      <circle cx={12} cy={-22} r={4} fill="#f3dfb0" opacity={0.45} />
+
+      <circle className="hero-sun" cx={966} cy={87} r={78} fill="url(#glow-sun)" />
+
+      {WINDOWS.map(([x, y], i) => (
+        <circle
+          key={`w${i}`}
+          className="hero-breathe"
+          style={timing((i * 0.7) % 4, 4 + (i % 3))}
+          cx={x}
+          cy={y}
+          r={20}
+          fill="url(#glow-warm)"
+        />
+      ))}
+
+      {LANTERNS.map(([x, y], i) => (
+        <circle
+          key={`l${i}`}
+          className="hero-flicker"
+          style={timing((i * 0.37) % 2, 2.4 + (i % 4) * 0.45)}
+          cx={x}
+          cy={y}
+          r={17}
+          fill="url(#glow-warm)"
+        />
+      ))}
+
+      {GLOW_FLOWERS.map(([x, y], i) => (
+        <circle
+          key={`f${i}`}
+          className="hero-breathe"
+          style={timing((i * 0.9) % 5, 5 + (i % 3))}
+          cx={x}
+          cy={y}
+          r={26}
+          fill="url(#glow-bloom)"
+        />
+      ))}
+
+      {TREE_LIGHTS.map((light, i) => (
+        // Position on the outer group: the CSS animation's transform would
+        // replace a transform attribute on the animated element itself.
+        <g key={`t${i}`} transform={`translate(${light.x} ${light.y})`}>
+          <g className="hero-twinkle" style={timing(light.delay, light.duration)}>
+            <circle r={light.kind === "star" ? 13 : 8} fill="url(#glow-warm)" />
+            {light.kind === "star" && (
+              <path
+                d="M0 -7.5 C 0.8 -1.7 1.7 -0.8 7.5 0 C 1.7 0.8 0.8 1.7 0 7.5 C -0.8 1.7 -1.7 0.8 -7.5 0 C -1.7 -0.8 -0.8 -1.7 0 -7.5 Z"
+                fill="#fffbe0"
+              />
+            )}
+          </g>
+        </g>
+      ))}
+
+      {POND_GLINTS.map(([x, y], i) => (
+        <ellipse
+          key={`p${i}`}
+          className="hero-glint"
+          style={timing(i * 0.8, 3.5 + (i % 3) * 0.8)}
+          cx={x}
+          cy={y}
+          rx={9}
+          ry={2.2}
+          fill="#ffffff"
+        />
+      ))}
+
+      {FIREFLIES.map((f, i) => (
+        <circle
+          key={`ff${i}`}
+          className="hero-firefly"
+          style={timing(f.delay, f.duration, { "--dx": `${f.dx}px`, "--dy": `${f.dy}px` })}
+          cx={f.x}
+          cy={f.y}
+          r={7}
+          fill="url(#glow-fairy)"
+        />
+      ))}
     </svg>
   );
 }
@@ -121,118 +221,37 @@ function Moon() {
 export function HeroScene() {
   const reduce = useReducedMotion();
   const { scrollY } = useScroll();
-  // Far layers drift more slowly than near ones, which reads as depth.
-  // Factors become 0 when the reader prefers reduced motion.
+  // The scene drifts slower than the page as you scroll, which reads as depth.
   const drift = (factor: number) => (v: number) => (reduce ? 0 : v * factor);
-  const skyY = useTransform(scrollY, drift(0.45));
-  const farY = useTransform(scrollY, drift(0.32));
-  const midBackY = useTransform(scrollY, drift(0.22));
-  const midY = useTransform(scrollY, drift(0.12));
-  const frontY = useTransform(scrollY, drift(0.04));
-  const ribbonY = useTransform(scrollY, drift(0.3));
+  const sceneY = useTransform(scrollY, drift(0.3));
 
   return (
-    <div
-      className="relative h-[clamp(440px,72vh,720px)] overflow-hidden"
-      style={{
-        background:
-          "linear-gradient(to bottom, var(--color-sky-pink) 0%, #e4a9d6 22%, var(--color-sky-lavender) 46%, #a9c4e2 66%, var(--color-sky-teal) 84%)",
-      }}
-    >
-      {/* Sky: twinkling stars */}
-      <Layer y={skyY}>
-        {STARS.map((star, i) => (
-          <g
-            key={i}
-            className="star-twinkle"
+    <div className="hero-frame relative h-[clamp(440px,72vh,720px)] overflow-hidden border-b-8 border-pink bg-[#bfe3e6]">
+      <motion.div className="absolute inset-0 will-change-transform" style={{ y: sceneY }}>
+        <div className="hero-stage">
+          <Image
+            src={storybookLand}
+            alt=""
+            fill
+            sizes="1376px"
+            placeholder="blur"
+            loading="eager"
+            fetchPriority="high"
+            className="object-cover"
+          />
+          <Glows />
+          <Image
+            src={balloon}
+            alt=""
+            className="hero-balloon absolute h-auto"
+            sizes="160px"
             style={{
-              ["--twinkle-delay" as string]: `${star.delay}s`,
-              ["--twinkle-duration" as string]: `${star.duration}s`,
+              left: pct(581, W),
+              top: pct(106, H),
+              width: pct(balloon.width, W),
             }}
-          >
-            {star.sparkle ? (
-              <path
-                transform={`translate(${star.x} ${star.y}) scale(${star.size / 3})`}
-                d="M0 -9 C 1 -2 2 -1 9 0 C 2 1 1 2 0 9 C -1 2 -2 1 -9 0 C -2 -1 -1 -2 0 -9 Z"
-                fill="#fffbea"
-              />
-            ) : (
-              <circle cx={star.x} cy={star.y} r={star.size / 2} fill="#fffbea" />
-            )}
-          </g>
-        ))}
-
-      </Layer>
-
-      {/* The moon sits outside the cropped scene, pinned to the corner, so
-          it stays visible on phones where the sides of the scene are cut off. */}
-      <motion.div
-        className="absolute top-[5%] right-[6%] w-[clamp(110px,16vw,220px)] will-change-transform"
-        style={{ y: skyY }}
-      >
-        <Moon />
-      </motion.div>
-
-      {/* Distant lavender hills */}
-      <Layer y={farY}>
-        <WatercolorDefs id="wc-far" scale={16} />
-        <path
-          filter="url(#wc-far)"
-          fill="#b9a6e0"
-          opacity={0.9}
-          d="M-40 470 C 160 395 360 420 560 452 S 900 378 1100 418 S 1360 398 1480 430 L1480 760 L-40 760 Z"
-        />
-      </Layer>
-
-      {/* Middle hills with a few far-off trees */}
-      <Layer y={midBackY}>
-        <WatercolorDefs id="wc-midback" scale={14} />
-        <g filter="url(#wc-midback)">
-          <Tree x={300} y={500} s={0.55} color="#7fb9b0" />
-          <Tree x={340} y={506} s={0.42} color="#e7a3c3" />
-          <Tree x={820} y={492} s={0.48} color="#c8a6e8" />
-          <Tree x={1110} y={484} s={0.5} color="#7fb9b0" />
-          <path
-            fill="#9cd3c6"
-            d="M-40 522 C 170 470 360 482 520 520 S 820 468 1000 498 S 1300 462 1480 500 L1480 760 L-40 760 Z"
           />
-        </g>
-      </Layer>
-
-      {/* Nearer hills with bigger trees */}
-      <Layer y={midY}>
-        <WatercolorDefs id="wc-mid" scale={12} />
-        <g filter="url(#wc-mid)">
-          <Tree x={170} y={572} s={1} color="#5aa595" />
-          <Tree x={236} y={580} s={0.75} color="#f0a7c4" />
-          {/* Center cluster: the part of the scene phones always see */}
-          <Tree x={640} y={586} s={0.95} color="#5aa595" />
-          <Tree x={700} y={590} s={0.7} color="#f0a7c4" />
-          <Tree x={985} y={556} s={1.1} color="#5aa595" />
-          <Tree x={1050} y={566} s={0.8} color="#c8a6e8" />
-          <Tree x={1300} y={560} s={0.9} color="#5aa595" />
-          <path
-            fill="#6fb8a8"
-            d="M-40 582 C 220 520 420 540 640 580 S 1000 528 1200 558 S 1400 544 1480 556 L1480 760 L-40 760 Z"
-          />
-        </g>
-      </Layer>
-
-      {/* Foreground hill; its color matches the page background below */}
-      <Layer y={frontY}>
-        <WatercolorDefs id="wc-front" scale={10} />
-        <path
-          filter="url(#wc-front)"
-          fill="#4f9a8c"
-          d="M-40 650 C 260 598 520 610 760 650 S 1180 606 1480 638 L1480 780 L-40 780 Z"
-        />
-      </Layer>
-
-      <motion.div
-        className="absolute inset-x-0 top-[13%] flex justify-center px-4"
-        style={{ y: ribbonY }}
-      >
-        <Ribbon />
+        </div>
       </motion.div>
     </div>
   );

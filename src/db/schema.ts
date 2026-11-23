@@ -99,15 +99,5 @@ export const settings = pgTable(
   ],
 );
 
-/**
- * Passcode attempts for rate limiting. The key is a hash (never a raw IP
- * address). A fixed window: `count` attempts since `windowStart`.
- */
-export const authAttempts = pgTable("auth_attempts", {
-  key: text("key").primaryKey(),
-  count: integer("count").notNull(),
-  windowStart: timestamp("window_start", { withTimezone: true }).notNull(),
-});
-
 export type Book = typeof books.$inferSelect;
 export type Reading = typeof readings.$inferSelect;

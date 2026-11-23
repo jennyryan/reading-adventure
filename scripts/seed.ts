@@ -63,7 +63,7 @@ async function main() {
   if (reset) {
     console.log(`Wiping all data in ${new URL(url!).host} ...`);
     await db.execute(sql`truncate books, readings, series, series_members, up_next_dismissals,
-      settings, auth_attempts restart identity cascade`);
+      settings restart identity cascade`);
   }
 
   await db.insert(schema.settings).values({ id: 1, readingGoal: 20 });

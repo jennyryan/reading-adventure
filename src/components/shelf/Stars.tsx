@@ -1,4 +1,4 @@
-const STAR_PATH =
+export const STAR_PATH =
   "M12 2.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.4l-5.8 3 1.1-6.5L2.6 9.3l6.5-.9L12 2.5z";
 
 /** Read-only star rating. The tappable version arrives with the add modal. */
