@@ -114,8 +114,16 @@ function EditBookForm({
     setBusy("saving");
     setError(null);
     try {
-      if (Object.keys(bookChanges).length > 0) {
-        const res = await patch(`/api/books/${book.id}`, bookChanges);
+      // A book with no series gets its series looked up again on save
+      // (books added before one could be found).
+      const bookPatch =
+        Object.keys(bookChanges).length > 0
+          ? bookChanges
+          : book.series === null
+            ? { recheckSeries: true }
+            : null;
+      if (bookPatch) {
+        const res = await patch(`/api/books/${book.id}`, bookPatch);
         if (!res.ok)
           throw new Error(
             await errorFrom(res, "Couldn't save the book's details."),

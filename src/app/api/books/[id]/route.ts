@@ -21,6 +21,9 @@ const Patch = z
     googleVolumeId: z.string().regex(/^[\w-]{1,40}$/).nullable(),
     // The search result's series tag, sent along with a replacement book.
     series: seriesHint.nullable(),
+    // Look the book's series up again (sent when a book with no series is
+    // saved, so books added before a series was found can still get one).
+    recheckSeries: z.literal(true),
   })
   .partial()
   .refine((v) => Object.keys(v).some((k) => k !== "series"), "Nothing to update");
@@ -35,7 +38,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 
   const current = await db().query.books.findFirst({ where: eq(books.id, id) });
   if (!current) return jsonError(404, "Book not found.");
-  const { series: hint, ...fields } = parsed.data;
+  const { series: hint, recheckSeries, ...fields } = parsed.data;
   const changes = { ...fields };
 
   // A book can only be on the shelf once: check the edited book against
@@ -52,7 +55,25 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 
   // A different book, or a corrected title or author, may be in a
   // different series: look it up again.
-  const seriesFields = identityChanged ? await detectSeries({ ...current, ...changes }, hint, id) : {};
+  let seriesFields: Partial<Awaited<ReturnType<typeof detectSeries>>> = {};
+  if (identityChanged) {
+    seriesFields = await detectSeries({ ...current, ...changes }, hint, id);
+  } else if (recheckSeries && current.seriesId === null) {
+    // A book saved before its series could be found: try again, and only
+    // change it if a series turns up.
+    const found = await detectSeries(current, null, id);
+    if (found.seriesId !== null) {
+      seriesFields = {
+        seriesId: found.seriesId,
+        seriesPosition: found.seriesPosition,
+        ...(found.hardcoverBookId !== null && { hardcoverBookId: found.hardcoverBookId }),
+      };
+    }
+  }
+
+  if (Object.keys(changes).length === 0 && Object.keys(seriesFields).length === 0) {
+    return NextResponse.json({ book: current });
+  }
 
   const [book] = await db().update(books).set({ ...changes, ...seriesFields }).where(eq(books.id, id)).returning();
   return book ? NextResponse.json({ book }) : jsonError(404, "Book not found.");
