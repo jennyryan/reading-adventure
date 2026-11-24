@@ -22,15 +22,17 @@ export type Picked = Pick<BookSearchResult, "title" | "author"> &
  * The add-book dialog: find the book (or type it in), give it stars and the
  * day Norah finished it, and it goes on the shelf. Open it with
  * `ref.current.showModal()`; `formKey` should change each time it opens so
- * it starts fresh.
+ * it starts fresh. `initialQuery` starts the search already typed in.
  */
 export function AddBookDialog({
   ref,
   formKey,
+  initialQuery,
   onAdded,
 }: {
   ref: RefObject<HTMLDialogElement | null>;
   formKey: number;
+  initialQuery?: string;
   /** Called with the id of the book that was added (or re-read). */
   onAdded: (bookId: number) => void;
 }) {
@@ -38,6 +40,7 @@ export function AddBookDialog({
     <BookDialog ref={ref} titleId="add-book-title" title="Add a Book">
       <AddBookForm
         key={formKey}
+        initialQuery={initialQuery}
         onDone={(bookId) => {
           ref.current?.close();
           onAdded(bookId);
@@ -47,7 +50,7 @@ export function AddBookDialog({
   );
 }
 
-function AddBookForm({ onDone }: { onDone: (bookId: number) => void }) {
+function AddBookForm({ initialQuery, onDone }: { initialQuery?: string; onDone: (bookId: number) => void }) {
   const [picked, setPicked] = useState<Picked | null>(null);
   const [manual, setManual] = useState(false);
 
@@ -55,6 +58,7 @@ function AddBookForm({ onDone }: { onDone: (bookId: number) => void }) {
     return (
       <BookSearch
         onPick={setPicked}
+        initialQuery={initialQuery}
         footer={
           <button type="button" onClick={() => setManual(true)} className={linkButtonStyle}>
             Can&apos;t find it? Type it in yourself

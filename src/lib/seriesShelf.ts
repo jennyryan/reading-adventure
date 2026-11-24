@@ -34,7 +34,9 @@ const byPosition = (a: { position: number | null }, b: { position: number | null
 /**
  * Groups shelf books (newest read first) by series. A series whose book
  * list we have shows every numbered book, read or not, with a blank slot
- * for any number the list skips; otherwise just the books she's read.
+ * for any number the list skips. Without a list, every number up to the
+ * highest she's read still gets a slot: having read #6 means #1 to #5
+ * exist, even if we don't know their titles or how many come after.
  * Series she read from most recently come first.
  */
 export function groupBySeries(books: ShelfBook[], members: Member[]): SeriesShelf {
@@ -55,12 +57,9 @@ export function groupBySeries(books: ShelfBook[], members: Member[]): SeriesShel
     const list = members.filter((m) => m.seriesId === id).sort(byPosition);
     const slotOf = (book: ShelfBook): SeriesSlot => ({ position: book.series?.position ?? null, title: book.title, book });
 
-    if (list.length === 0) {
-      return { id, name: group.name, total: null, read: group.books.length, slots: group.books.map(slotOf).sort(byPosition) };
-    }
-
-    // Every number from 1 to the last one listed, so "of 7" is always seven slots.
-    const last = Math.max(...list.map((m) => m.position ?? 0));
+    // Every number from 1 to the last one known, so "of 7" is always seven slots.
+    const highestRead = Math.max(0, ...group.books.map((b) => b.series?.position ?? 0).filter(Number.isInteger));
+    const last = list.length > 0 ? Math.max(...list.map((m) => m.position ?? 0)) : highestRead;
     const unplaced = new Set(group.books);
     const slots = Array.from({ length: last }, (_, i): SeriesSlot => {
       const position = i + 1;
@@ -71,7 +70,9 @@ export function groupBySeries(books: ShelfBook[], members: Member[]): SeriesShel
     const read = slots.filter((slot) => slot.book).length;
     // Books she's read that aren't on the list (an in-between "1.5", say) still show.
     slots.push(...[...unplaced].map(slotOf));
-    return { id, name: group.name, total: last, read, slots: slots.sort(byPosition) };
+    return list.length > 0
+      ? { id, name: group.name, total: last, read, slots: slots.sort(byPosition) }
+      : { id, name: group.name, total: null, read: group.books.length, slots: slots.sort(byPosition) };
   });
 
   return { series, standalone };

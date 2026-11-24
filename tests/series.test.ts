@@ -151,6 +151,11 @@ describe("seriesFromOpenLibrary", () => {
       position: 3.5,
     });
     expect(seriesFromOpenLibrary({ series_name: ["Frog and Toad"] })).toEqual({ name: "Frog and Toad", position: null });
+    // A box set is in the series, but isn't book 1.
+    expect(seriesFromOpenLibrary({ series_name: ["Harry Potter"], series_position: ["1-7"] })).toEqual({
+      name: "Harry Potter",
+      position: null,
+    });
   });
 
   it("finds nothing without a series name", () => {

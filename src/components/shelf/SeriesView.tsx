@@ -1,32 +1,42 @@
 import Image from "next/image";
 import type { SeriesGroup, SeriesShelf, SeriesSlot } from "@/lib/seriesShelf";
 import type { ShelfBook } from "@/lib/shelf";
+import { EditableBook, EmptySlot, SeriesActionsProvider } from "./SeriesActions";
 import { pastelFor } from "./BookCard";
 
 /**
  * The shelf organized by series: each series in order, with how many of
  * its books Norah has read. Books she hasn't read yet are empty, numbered
- * slots. Books in no series are gathered at the end.
+ * slots; clicking one adds it. Clicking a cover edits that book, as on the
+ * shelf grid. Books in no series are gathered at the end.
  */
 export function SeriesView({ shelf }: { shelf: SeriesShelf }) {
+  const books = [
+    ...shelf.series.flatMap((group) => group.slots.flatMap((slot) => (slot.book ? [slot.book] : []))),
+    ...shelf.standalone,
+  ];
   return (
-    <div className="space-y-6">
-      {shelf.series.length === 0 && (
-        <p className="py-6 text-center text-lg text-ink-soft">
-          None of these books are in a series yet. When a series is found, it will show up here.
-        </p>
-      )}
-      {shelf.series.map((group) => (
-        <SeriesRow key={group.id} group={group} />
-      ))}
-      {shelf.standalone.length > 0 && <Standalone books={shelf.standalone} />}
-    </div>
+    <SeriesActionsProvider books={books}>
+      <div className="space-y-6">
+        {shelf.series.length === 0 && (
+          <p className="py-6 text-center text-lg text-ink-soft">
+            None of these books are in a series yet. When a series is found, it will show up here.
+          </p>
+        )}
+        {shelf.series.map((group) => (
+          <SeriesRow key={group.id} group={group} />
+        ))}
+        {shelf.standalone.length > 0 && <Standalone books={shelf.standalone} />}
+      </div>
+    </SeriesActionsProvider>
   );
 }
 
 function SeriesRow({ group }: { group: SeriesGroup }) {
   const complete = group.total !== null && group.read >= group.total;
   const progress = group.total === null ? null : Math.min(1, group.read / group.total);
+  // For searching: series books usually share an author.
+  const author = group.slots.find((slot) => slot.book?.author)?.book?.author ?? null;
 
   return (
     <section aria-labelledby={`series-${group.id}`} className={`rounded-3xl p-4 shadow-sm sm:p-5 ${pastelFor(group.id)}`}>
@@ -63,10 +73,10 @@ function SeriesRow({ group }: { group: SeriesGroup }) {
       {/* Long series scroll sideways rather than taking over the page.
           (relative keeps the hidden screen-reader labels inside the row,
           so they can't stretch the page sideways.) */}
-      <ol className="relative -mx-1 mt-4 flex gap-3 overflow-x-auto px-1 pb-2">
+      <ol className="relative -mx-1 mt-3 flex gap-3 overflow-x-auto px-1 pt-1 pb-2">
         {group.slots.map((slot, i) => (
           <li key={slot.book?.id ?? `${slot.position}-${i}`} className="w-[84px] shrink-0">
-            <Slot slot={slot} />
+            <Slot slot={slot} seriesName={group.name} author={author} />
           </li>
         ))}
       </ol>
@@ -74,12 +84,14 @@ function SeriesRow({ group }: { group: SeriesGroup }) {
   );
 }
 
-function Slot({ slot }: { slot: SeriesSlot }) {
+function Slot({ slot, seriesName, author }: { slot: SeriesSlot; seriesName: string; author: string | null }) {
   const number = slot.position === null ? null : `#${slot.position}`;
   if (slot.book) {
     return (
       <figure className="flex flex-col items-center gap-1 text-center">
-        <Cover book={slot.book} />
+        <EditableBook bookId={slot.book.id} title={slot.book.title}>
+          <Cover book={slot.book} />
+        </EditableBook>
         <figcaption className="text-xs font-semibold text-ink">
           <span className="sr-only">{slot.title}, read. </span>
           {number}
@@ -87,16 +99,7 @@ function Slot({ slot }: { slot: SeriesSlot }) {
       </figure>
     );
   }
-  return (
-    <div className="flex flex-col items-center gap-1 text-center">
-      <div className="flex aspect-[2/3] w-full flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-ink-soft/30 bg-white/40 p-1.5">
-        {number && <span className="font-display text-xl font-bold text-ink-soft/70">{number}</span>}
-        {slot.title && <span className="line-clamp-3 text-[11px] leading-tight text-ink-soft">{slot.title}</span>}
-      </div>
-      {/* A number the series' book list skipped has no title. */}
-      <span className="sr-only">{slot.title || `Book ${slot.position}`}, not read yet</span>
-    </div>
-  );
+  return <EmptySlot position={slot.position} title={slot.title} seriesName={seriesName} author={author} />;
 }
 
 function Cover({ book }: { book: ShelfBook }) {
@@ -124,13 +127,12 @@ function Standalone({ books }: { books: ShelfBook[] }) {
           {books.length} {books.length === 1 ? "book" : "books"}
         </p>
       </div>
-      <ul className="mt-4 flex flex-wrap gap-3">
+      <ul className="mt-3 flex flex-wrap gap-3 pt-1">
         {books.map((book) => (
           <li key={book.id} className="w-[84px]">
-            <figure>
+            <EditableBook bookId={book.id} title={book.title}>
               <Cover book={book} />
-              <figcaption className="sr-only">{book.title}</figcaption>
-            </figure>
+            </EditableBook>
           </li>
         ))}
       </ul>
