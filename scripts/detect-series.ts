@@ -7,10 +7,12 @@
 // Each series found also gets its full book list saved, for the "By
 // series" view's "3 of 12 read".
 //
-// Sources: Hardcover, when HARDCOVER_TOKEN is in .env.local, and Open
-// Library's series listing for books picked from Open Library. Without a
-// token only those Open Library books can be checked (saved titles have
-// already had their series tags trimmed, so there's nothing else to go on).
+// Sources: Hardcover, when HARDCOVER_TOKEN is in .env.local, then Open
+// Library (the book's own work when it was picked from Open Library, or a
+// search by title and author).
+//
+// To fix up the live site's shelf, point it at that database:
+//   DATABASE_URL=<the live one> npm run db:detect-series
 
 import { config } from "dotenv";
 
@@ -24,15 +26,15 @@ async function main() {
   const hardcover = Boolean(process.env.HARDCOVER_TOKEN?.trim());
   if (!hardcover) {
     console.log(
-      "HARDCOVER_TOKEN is not set, so only books picked from Open Library are checked, using Open Library's series.\n" +
-        "Add a token from hardcover.app/account/api to .env.local to check every book.",
+      "HARDCOVER_TOKEN is not set, so only Open Library's series are used.\n" +
+        "Add a token from hardcover.app/account/api to .env.local for Hardcover's too.",
     );
   }
   // Up to 3 Hardcover requests per book: stay well under its 60 a minute.
   const pauseMs = hardcover ? 3000 : 1000;
 
   // Imported after .env.local is loaded, since they read the environment.
-  const { and, eq, isNotNull, isNull, or } = await import("drizzle-orm");
+  const { eq, isNull, or } = await import("drizzle-orm");
   const { db } = await import("../src/db");
   const { books, series } = await import("../src/db/schema");
   const { detectSeries } = await import("../src/lib/series");
@@ -40,16 +42,14 @@ async function main() {
 
   const all = process.argv.includes("--all");
   // With Hardcover: books with no series, or one only known from a title tag
-  // or Open Library. Without: Open Library books with no series.
-  const needed = hardcover
-    ? or(isNull(books.seriesId), isNull(series.hardcoverSeriesId))
-    : and(isNull(books.seriesId), isNotNull(books.openLibraryWorkId));
+  // or Open Library. Without: books with no series.
+  const needed = hardcover ? or(isNull(books.seriesId), isNull(series.hardcoverSeriesId)) : isNull(books.seriesId);
   const todo = (
     await db()
       .select({ book: books })
       .from(books)
       .leftJoin(series, eq(books.seriesId, series.id))
-      .where(all ? (hardcover ? undefined : isNotNull(books.openLibraryWorkId)) : needed)
+      .where(all ? undefined : needed)
       .orderBy(books.id)
   ).map((row) => row.book);
   console.log(`Checking ${todo.length} book${todo.length === 1 ? "" : "s"}…`);

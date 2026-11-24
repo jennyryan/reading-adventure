@@ -1,7 +1,9 @@
 // Working out which series a book is in, when it's added or swapped for a
-// different book. Hardcover is asked first; the series tag in the search
-// result's title ("(Dog Man #9)") is the fallback when there's no token,
-// Hardcover is down, or Hardcover doesn't know the book's series.
+// different book. Hardcover is asked first; the series the search result
+// named (Open Library's series field, or a tag like "(Dog Man #9)" in the
+// title) is the fallback when there's no token, Hardcover is down, or
+// Hardcover doesn't know the book's series. With neither, Open Library is
+// asked by title and author (Google's results don't name series).
 
 import { and, eq, isNull, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
@@ -9,6 +11,7 @@ import { books, series, seriesMembers } from "@/db/schema";
 import type { SeriesHint } from "./bookTitle";
 import { env } from "./env";
 import { fetchSeriesMembers, findHardcoverBook, type HardcoverBook } from "./hardcover";
+import { findOpenLibrarySeries } from "./openLibrary";
 
 /** What gets saved on the book. */
 export type BookSeriesFields = {
@@ -19,6 +22,7 @@ export type BookSeriesFields = {
 
 /** Hardcover is skipped after this long, so adding a book never hangs on it. */
 const HARDCOVER_TIMEOUT_MS = 6000;
+const OPEN_LIBRARY_TIMEOUT_MS = 5000;
 /** How long a series' saved book list is trusted before it's fetched again. */
 const MEMBERS_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -45,6 +49,14 @@ export async function detectSeries(
       hardcover = await findHardcoverBook(token, book, AbortSignal.timeout(HARDCOVER_TIMEOUT_MS));
     } catch (err) {
       console.warn(`Series lookup on Hardcover failed for “${book.title}”:`, err instanceof Error ? err.message : err);
+    }
+  }
+
+  if (!hardcover?.series && !hint) {
+    try {
+      hint = await findOpenLibrarySeries(book, AbortSignal.timeout(OPEN_LIBRARY_TIMEOUT_MS));
+    } catch (err) {
+      console.warn(`Series lookup on Open Library failed for “${book.title}”:`, err instanceof Error ? err.message : err);
     }
   }
 

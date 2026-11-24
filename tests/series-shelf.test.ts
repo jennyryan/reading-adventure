@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchSeriesMembers } from "@/lib/hardcover";
-import { fetchOpenLibrarySeriesBooks, findOpenLibrarySeriesKey } from "@/lib/openLibrary";
+import { fetchOpenLibrarySeriesBooks, findOpenLibrarySeries, findOpenLibrarySeriesKey } from "@/lib/openLibrary";
 import { groupBySeries } from "@/lib/seriesShelf";
 import type { ShelfBook } from "@/lib/shelf";
 
@@ -73,14 +73,21 @@ describe("groupBySeries", () => {
     ]);
   });
 
-  it("shows just the read books, in order, when the series' book list isn't known", () => {
-    const nine = book("Grime and Punishment", dogMan(9));
+  it("without the series' book list, still has a slot for every number up to the highest read", () => {
+    const four = book("Brawl of the Wild", dogMan(4));
     const two = book("Dog Man Unleashed", dogMan(2));
     const unnumbered = book("Dog Man: The Supa Buddies Mega Collection", dogMan(null));
 
-    const [group] = groupBySeries([nine, unnumbered, two], []).series;
+    const [group] = groupBySeries([four, unnumbered, two], []).series;
+    // How many there are in all isn't known.
     expect(group).toMatchObject({ name: "Dog Man", total: null, read: 3 });
-    expect(group.slots.map((s) => s.book?.id)).toEqual([two.id, nine.id, unnumbered.id]);
+    expect(group.slots.map((s) => [s.position, s.book?.id ?? null])).toEqual([
+      [1, null],
+      [2, two.id],
+      [3, null],
+      [4, four.id],
+      [null, unnumbered.id],
+    ]);
   });
 
   it("puts the most recently read series first and gathers books in no series", () => {
@@ -155,6 +162,26 @@ describe("Open Library series lists", () => {
       { title: "Dog Man Unleashed", author_name: ["Dav Pilkey"], series_key: ["OL1734L"], series_name: ["Dog Man"] },
     ]);
     expect(await findOpenLibrarySeriesKey({ title: "Dog Man Unleashed", author: "Dav Pilkey" }, "Dog Man")).toBe("OL1734L");
+  });
+
+  it("finds a book's series by title and author, with or without the series name in the title", async () => {
+    const docs = [
+      { title: "Rodrick Rules", author_name: ["Someone Else"], series_name: ["Other"], series_position: ["1"] },
+      { title: "Rodrick Rules", author_name: ["Jeff Kinney"], series_name: ["Diary of a Wimpy Kid"], series_position: ["2"] },
+    ];
+    answer(docs);
+    expect(await findOpenLibrarySeries({ title: "Diary of a Wimpy Kid: Rodrick Rules", author: "Jeff Kinney" })).toEqual({
+      name: "Diary of a Wimpy Kid",
+      position: 2,
+    });
+    answer(docs);
+    expect(await findOpenLibrarySeries({ title: "Rodrick Rules", author: "Jeff Kinney" })).toEqual({
+      name: "Diary of a Wimpy Kid",
+      position: 2,
+    });
+    // The series name in front needs the author to match too.
+    answer(docs);
+    expect(await findOpenLibrarySeries({ title: "Diary of a Wimpy Kid: Rodrick Rules" })).toBeNull();
   });
 
   it("lists one book per whole number, the one with the most editions, skipping box sets", async () => {

@@ -1,20 +1,21 @@
 // Bits of Open Library's search results (openlibrary.org/dev/docs/api/search)
 // that need a little interpreting.
 
-import { isSameBook } from "./bookMatch";
-import type { SeriesHint } from "./bookTitle";
+import { authorKey, isSameBook, titleKey } from "./bookMatch";
+import { cleanTitle, type SeriesHint } from "./bookTitle";
 
 /** The fields of a search result these helpers read. */
 export type OpenLibrarySeriesFields = { series_name?: string[]; series_position?: string[] };
 
 /**
  * The series Open Library lists for a book, e.g. Harry Potter, 2. Positions
- * are free text ("2", "Book 2", "2.5"), so the first number in it is used.
+ * are free text ("2", "Book 2", "2.5"). A box set's range ("1-7") gives no
+ * position: it's in the series, but isn't book 1.
  */
 export function seriesFromOpenLibrary(doc: OpenLibrarySeriesFields): SeriesHint | null {
   const name = doc.series_name?.[0]?.trim();
   if (!name) return null;
-  const number = doc.series_position?.[0]?.match(/\d+(?:\.\d+)?/)?.[0];
+  const number = doc.series_position?.[0]?.trim().match(/^\D*?(\d+(?:\.\d+)?)$/)?.[1];
   return { name, position: number === undefined ? null : Number(number) };
 }
 
@@ -76,13 +77,48 @@ export async function findOpenLibrarySeriesKey(
   const fields = "key,title,author_name,series_key,series_name";
   const doc = book.openLibraryWorkId
     ? (await searchDocs({ q: `key:/works/${book.openLibraryWorkId}`, fields }, WEEK, signal))[0]
-    : (await searchDocs({ q: [book.title, book.author].filter(Boolean).join(" "), fields, limit: "5" }, WEEK, signal)).find(
-        (d) => d.title && isSameBook(book, { title: d.title, author: d.author_name?.[0] ?? null }),
-      );
+    : await findSameDoc(book, fields, signal);
   const keys = doc?.series_key ?? [];
   const named = doc?.series_name?.findIndex((n) => n.trim().toLowerCase() === seriesName.trim().toLowerCase()) ?? -1;
   const key = keys[named >= 0 ? named : 0];
   return key && /^OL\d+L$/.test(key) ? key : null;
+}
+
+/**
+ * The series Open Library lists for a book, found by its title and author,
+ * or null. For books picked from Google, whose results don't name series.
+ */
+export async function findOpenLibrarySeries(
+  book: { title: string; author?: string | null },
+  signal?: AbortSignal,
+): Promise<SeriesHint | null> {
+  const doc = await findSameDoc(book, "key,title,author_name,series_name,series_position", signal);
+  return doc ? seriesFromOpenLibrary(doc) : null;
+}
+
+/**
+ * Open Library's entry for a book, by title and author, among those it
+ * lists in a series. Google often puts the series in the title ("Diary of
+ * a Wimpy Kid: Rodrick Rules") where Open Library has just "Rodrick Rules":
+ * that counts too, as long as the author matches.
+ */
+async function findSameDoc(book: { title: string; author?: string | null }, fields: string, signal?: AbortSignal) {
+  const docs = await searchDocs(
+    { q: [cleanTitle(book.title), book.author].filter(Boolean).join(" "), fields, limit: "10" },
+    WEEK,
+    signal,
+  );
+  const target = titleKey(book.title);
+  const author = authorKey(book.author);
+  return docs.find((doc) => {
+    if (!doc.title || !doc.series_name?.length) return false;
+    if (isSameBook(book, { title: doc.title, author: doc.author_name?.[0] ?? null })) return true;
+    const sameAuthor = author !== null && doc.author_name?.some((a) => authorKey(a) === author);
+    return (
+      sameAuthor &&
+      doc.series_name.some((name) => [`${name}: ${doc.title}`, `${name} ${doc.title}`].some((t) => titleKey(t) === target))
+    );
+  });
 }
 
 /**
