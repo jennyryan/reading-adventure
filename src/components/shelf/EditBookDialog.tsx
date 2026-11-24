@@ -13,6 +13,7 @@ import {
   linkButtonStyle,
   primaryButtonStyle,
 } from "./BookDialogParts";
+import { writeFetch } from "./EditAccess";
 import { BookSearch, type Picked } from "./AddBookDialog";
 import { StarPicker } from "./StarPicker";
 
@@ -144,7 +145,7 @@ function EditBookForm({
     setBusy("deleting");
     setError(null);
     try {
-      const res = await fetch(`/api/books/${book.id}`, { method: "DELETE" });
+      const res = await writeFetch(`/api/books/${book.id}`, { method: "DELETE" });
       if (!res.ok)
         throw new Error(await errorFrom(res, "Couldn't delete the book."));
       onDeleted();
@@ -321,7 +322,7 @@ function EditBookForm({
 }
 
 function patch(url: string, body: unknown) {
-  return fetch(url, {
+  return writeFetch(url, {
     method: "PATCH",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),

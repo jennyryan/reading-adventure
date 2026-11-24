@@ -21,11 +21,43 @@ docker compose up -d
 DATABASE_URL=postgresql://postgres:postgres@db.localtest.me:5432/main
 ```
 
-## No sign-in
+## Editing passcode
 
-There's no lock: anyone who can open the site can add, edit and delete
-books. Keep the address private, or put the deployment behind Vercel's
-password protection if strangers shouldn't be able to change the shelf.
+Anyone with the address can view the shelf. When `EDIT_PASSCODE` is set,
+adding, editing and deleting books asks for it once; that device then
+remembers it for a year (an `httpOnly` cookie holding a signed copy, not
+the passcode). Changing the passcode signs every device out. With no
+passcode, anyone can edit: fine locally and on the portfolio demo.
+
+## Portfolio demo
+
+The demo is this same app deployed a second time, with its own database,
+a made-up reader and a sample shelf visitors can play with. It goes back
+to the sample books every night. Every push to `main` updates both sites.
+
+Setting it up (once):
+
+1. **Database:** in Neon, create a new branch or database for the demo
+   (never Norah's). Apply the schema with
+   `DATABASE_URL='<demo database URL>' npm run db:migrate`.
+2. **Vercel:** Add New > Project, pick this same GitHub repo, and set these
+   environment variables:
+   - `DATABASE_URL`: the demo database
+   - `READER_NAME`: the made-up name, e.g. `Maya`
+   - `DEMO_RESET_SECRET` and `CRON_SECRET`: the same random value, 16+
+     characters (e.g. from `openssl rand -hex 24`)
+   - optionally `GOOGLE_BOOKS_API_KEY` and `HARDCOVER_TOKEN`
+   - **not** `EDIT_PASSCODE`, so visitors can try adding books
+3. **Fill the shelf:** after the first deploy, run
+   `curl -H "Authorization: Bearer <secret>" https://<demo>/api/demo/reset`.
+   After that, Vercel's cron (`vercel.json`) does it daily at 08:00 UTC.
+4. **Norah's site:** add `EDIT_PASSCODE` to her Vercel project and redeploy.
+
+The cron also runs on Norah's project, where `/api/demo/reset` answers
+404 because `DEMO_RESET_SECRET` isn't set. **Never set `DEMO_RESET_SECRET`
+on Norah's site:** the reset wipes the shelf.
+
+The sample books are in `src/lib/sampleShelf.ts` (also used by `npm run db:seed`).
 
 ## Book search
 

@@ -12,6 +12,7 @@ import {
   linkButtonStyle,
   primaryButtonStyle,
 } from "./BookDialogParts";
+import { writeFetch } from "./EditAccess";
 import { StarPicker } from "./StarPicker";
 
 /** A book chosen from search (or typed in: just a title and author). */
@@ -214,7 +215,7 @@ function BookDetails({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/books", {
+      const res = await writeFetch("/api/books", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ ...book, rating, readAt: form.get("readAt") }),

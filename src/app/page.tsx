@@ -4,19 +4,23 @@ import { AlignToHeroEdge } from "@/components/shelf/AlignToHeroEdge";
 import { BookCard } from "@/components/shelf/BookCard";
 import { BookGrid } from "@/components/shelf/BookGrid";
 import { BooksReadBadge } from "@/components/shelf/BooksReadBadge";
+import { PasscodeDialog } from "@/components/shelf/EditAccess";
 import { SeriesView } from "@/components/shelf/SeriesView";
 import { ViewSwitch } from "@/components/shelf/ViewSwitch";
+import { env } from "@/lib/env";
 import { getSeriesShelf } from "@/lib/seriesShelf";
 import { getShelf } from "@/lib/shelf";
 
 export default async function Home({ searchParams }: PageProps<"/">) {
   const { books } = await getShelf();
+  const { readerName, demoResetSecret } = env();
   // ?view=series groups the shelf by series; anything else shows every book.
   const view = (await searchParams).view === "series" ? "series" : "books";
 
   return (
     <>
       <HeroScene />
+      <PasscodeDialog />
 
       {/* Grows to the bottom of the window, so the dots cover the whole
           page even when the shelf is short. */}
@@ -24,7 +28,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         {/* The margins are close fallbacks; AlignToHeroEdge sets the exact one. */}
         <AlignToHeroEdge className="relative z-10 mx-auto -mt-[401px] max-w-7xl px-3 sm:-mt-[365px] sm:px-6">
           <section
-            aria-label="Norah's bookshelf"
+            aria-label={`${readerName}'s bookshelf`}
             className="space-y-8 rounded-[2rem] bg-cream p-5 shadow-[0_20px_50px_-15px_rgba(40,30,60,0.45)] sm:p-8"
           >
             <div className="space-y-3 text-center">
@@ -32,10 +36,10 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                   the panel's top padding. (Flex keeps this margin and the
                   badge's own from merging into one.) */}
               <div className="-mt-5 flex justify-center sm:-mt-8">
-                <BooksReadBadge read={books.length} />
+                <BooksReadBadge read={books.length} reader={readerName} />
               </div>
               <h1 className="font-display text-[2.3rem] font-bold leading-normal text-[#c2417f] sm:text-6xl">
-                Norah&apos;s Reading Adventure
+                {readerName}&apos;s Reading Adventure
               </h1>
               <div className="flex justify-center">
                 <AddBookButton />
@@ -62,7 +66,10 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         </AlignToHeroEdge>
 
         <footer className="flex flex-col items-center gap-1 px-4 py-10 text-center text-white/85">
-          <p className="text-sm">Made with love for Norah ✨</p>
+          <p className="text-sm">Made with love for {readerName} ✨</p>
+          {demoResetSecret && (
+            <p className="text-xs">This is a demo shelf: try adding books! It goes back to the sample books every night.</p>
+          )}
         </footer>
       </div>
     </>

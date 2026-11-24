@@ -50,7 +50,7 @@ const SPARKLE_PATH =
  * it; it lifts itself up so the bump rises out of the panel's edge. The
  * number counts up when the page opens.
  */
-export function BooksReadBadge({ read }: { read: number }) {
+export function BooksReadBadge({ read, reader }: { read: number; reader: string }) {
   const reduce = useReducedMotion();
   const count = useMotionValue(0);
   const shown = useTransform(count, (v) => Math.round(v));
@@ -80,7 +80,7 @@ export function BooksReadBadge({ read }: { read: number }) {
       </svg>
 
       <p className="sr-only">
-        Norah has read {read} {read === 1 ? "book" : "books"}.
+        {reader} has read {read} {read === 1 ? "book" : "books"}.
       </p>
       <motion.div
         aria-hidden="true"
