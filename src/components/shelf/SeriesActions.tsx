@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { createContext, use, useRef, useState, type ReactNode } from "react";
 import type { ShelfBook } from "@/lib/shelf";
 import { AddBookDialog } from "./AddBookDialog";
+import { unlockFirst } from "./EditAccess";
 import { EditBookDialog } from "./EditBookDialog";
 
 type Actions = {
@@ -33,7 +34,8 @@ export function SeriesActionsProvider({ books, children }: { books: ShelfBook[];
   const editing = books.find((b) => b.id === editingId) ?? null;
 
   const actions: Actions = {
-    add(q) {
+    async add(q) {
+      if (!(await unlockFirst())) return;
       setQuery(q);
       setAddKey((k) => k + 1); // a fresh form each time
       addDialog.current?.showModal();

@@ -7,20 +7,24 @@ import { BooksReadBadge } from "@/components/shelf/BooksReadBadge";
 import { PasscodeDialog } from "@/components/shelf/EditAccess";
 import { SeriesView } from "@/components/shelf/SeriesView";
 import { ViewSwitch } from "@/components/shelf/ViewSwitch";
+import { cookies } from "next/headers";
+import { EDIT_COOKIE, mayEdit } from "@/lib/editAccess";
 import { env } from "@/lib/env";
 import { getSeriesShelf } from "@/lib/seriesShelf";
 import { getShelf } from "@/lib/shelf";
 
 export default async function Home({ searchParams }: PageProps<"/">) {
   const { books } = await getShelf();
-  const { readerName, demoResetSecret } = env();
+  const { readerName, demoResetSecret, editPasscode } = env();
+  // Whether this device has entered the editing passcode (when there is one).
+  const editLocked = !mayEdit(editPasscode, (await cookies()).get(EDIT_COOKIE)?.value);
   // ?view=series groups the shelf by series; anything else shows every book.
   const view = (await searchParams).view === "series" ? "series" : "books";
 
   return (
     <>
       <HeroScene />
-      <PasscodeDialog />
+      <PasscodeDialog locked={editLocked} />
 
       {/* Grows to the bottom of the window, so the dots cover the whole
           page even when the shelf is short. */}

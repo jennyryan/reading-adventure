@@ -3,13 +3,22 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { BookDialog, FormError, inputStyle, labelTextStyle, primaryButtonStyle } from "./BookDialogParts";
 
-// When the site has an editing passcode (Norah's does), the server answers
-// a change from a device that hasn't entered it with 401 "locked". Changes
-// go through writeFetch, which then asks for the passcode and tries again,
-// so a book being added isn't lost.
+// When the site has an editing passcode (Norah's does), a device that
+// hasn't entered it is "locked". Add Book asks for the passcode before
+// opening (unlockFirst). The server also answers any change from a locked
+// device with 401 "locked"; changes go through writeFetch, which then asks
+// and tries again, so a book being added is never lost.
 
 /** Set by the mounted PasscodeDialog: asks, and resolves true once unlocked. */
 let askForPasscode: (() => Promise<boolean>) | null = null;
+/** Whether this device still needs the passcode, as far as the page knows. */
+let locked = false;
+
+/** Asks for the passcode if this device needs it. Resolves false if it was closed without unlocking. */
+export async function unlockFirst(): Promise<boolean> {
+  if (!locked || !askForPasscode) return true;
+  return askForPasscode();
+}
 
 /** fetch for requests that change the shelf. */
 export async function writeFetch(url: string, init: RequestInit): Promise<Response> {
@@ -17,15 +26,23 @@ export async function writeFetch(url: string, init: RequestInit): Promise<Respon
   if (res.status !== 401 || !askForPasscode) return res;
   const body = (await res.clone().json().catch(() => ({}))) as { error?: string };
   if (body.error !== "locked") return res;
+  locked = true;
   if (await askForPasscode()) return fetch(url, init);
   return Response.json({ error: "Changing the shelf needs the passcode." }, { status: 401 });
 }
 
-/** The passcode prompt. Mount it once on the page. */
-export function PasscodeDialog() {
+/**
+ * The passcode prompt. Mount it once on the page; `locked` says whether
+ * this device needs the passcode (from its cookie, checked on the server).
+ */
+export function PasscodeDialog({ locked: startLocked }: { locked: boolean }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const resolve = useRef<((unlocked: boolean) => void) | null>(null);
   const [formKey, setFormKey] = useState(0);
+
+  useEffect(() => {
+    locked = startLocked;
+  }, [startLocked]);
 
   useEffect(() => {
     const el = dialog.current;
@@ -53,6 +70,7 @@ export function PasscodeDialog() {
       <PasscodeForm
         key={formKey}
         onUnlocked={() => {
+          locked = false;
           resolve.current?.(true);
           resolve.current = null;
           dialog.current?.close();

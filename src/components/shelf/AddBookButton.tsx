@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { AddBookDialog } from "./AddBookDialog";
+import { unlockFirst } from "./EditAccess";
 import { showOnShelf } from "./showOnShelf";
 
 /**
@@ -30,7 +31,9 @@ export function AddBookButton() {
   const dialog = useRef<HTMLDialogElement>(null);
   const [formKey, setFormKey] = useState(0);
 
-  function open() {
+  async function open() {
+    // On a site with a passcode, ask for it first (once per device).
+    if (!(await unlockFirst())) return;
     setFormKey((k) => k + 1); // a fresh, empty form each time
     dialog.current?.showModal();
   }
